@@ -243,6 +243,105 @@ s3_client_create_folder(const gchar *endpoint, const gchar *access_key, const gc
 }
 
 // #############################################################################
+// # Download Object
+// #############################################################################
+
+typedef struct {
+    FILE *file;
+    S3Status status;
+    GError *error;
+    guint64 total_bytes;
+    guint64 downloaded_bytes;
+    S3DownloadProgressCallback progress_callback;
+    gpointer progress_user_data;
+} DownloadObjectContext;
+
+
+static S3Status
+response_properties_callback_download_object(const S3ResponseProperties *properties, void *callback_data) {
+    DownloadObjectContext *context = (DownloadObjectContext *)callback_data;
+    if (properties->contentLength > 0) {
+        context->total_bytes = properties->contentLength;
+    }
+    return S3StatusOK;
+}
+
+static S3Status
+download_object_data_callback(int bufferSize, const char *buffer, void *callback_data) {
+    DownloadObjectContext *context = (DownloadObjectContext *)callback_data;
+    size_t wrote = fwrite(buffer, 1, bufferSize, context->file);
+    if (wrote < (size_t)bufferSize) {
+        return S3StatusAbortedByCallback;
+    }
+
+    context->downloaded_bytes += bufferSize;
+    if (context->progress_callback) {
+        if (!context->progress_callback(context->downloaded_bytes, context->total_bytes, context->progress_user_data)) {
+            return S3StatusAbortedByCallback;
+        }
+    }
+
+    return S3StatusOK;
+}
+
+static void
+response_complete_callback_download_object(S3Status status, const S3ErrorDetails *error_details, void *callback_data) {
+    DownloadObjectContext *context = (DownloadObjectContext *)callback_data;
+    context->status = status;
+    if (status != S3StatusOK && error_details && error_details->message) {
+        g_set_error(&context->error, g_quark_from_static_string("S3Client"), status, "S3 Error: %s", error_details->message);
+    }
+}
+
+gboolean
+s3_client_download_object(const gchar *endpoint, const gchar *access_key, const gchar *secret_key, const gchar *bucket, const gchar *key, const gchar *local_file_path, gboolean use_ssl, S3DownloadProgressCallback progress_callback, gpointer progress_user_data, GError **error) {
+
+    FILE *file = fopen(local_file_path, "w");
+    if (!file) {
+        g_set_error(error, G_FILE_ERROR, g_file_error_from_errno(errno), "Failed to open file '%s'", local_file_path);
+        return FALSE;
+    }
+
+    DownloadObjectContext context = { file, S3StatusInternalError, NULL, 0, 0, progress_callback, progress_user_data };
+    S3GetObjectHandler handler = {
+        { &response_properties_callback_download_object, &response_complete_callback_download_object },
+        &download_object_data_callback
+    };
+
+    S3BucketContext bucket_context = {
+        .hostName = endpoint,
+        .bucketName = bucket,
+        .protocol = use_ssl ? S3ProtocolHTTPS : S3ProtocolHTTP,
+        .uriStyle = S3UriStyleVirtualHost,
+        .accessKeyId = access_key,
+        .secretAccessKey = secret_key,
+    };
+
+    if (S3_initialize("s3", S3_INIT_ALL, NULL) != S3StatusOK) {
+        g_set_error(error, g_quark_from_static_string("S3Client"), 0, "Failed to initialize libs3");
+        fclose(file);
+        return FALSE;
+    }
+
+    S3_get_object(&bucket_context, key, NULL, 0, 0, NULL, &handler, &context);
+
+    S3_deinitialize();
+    fclose(file);
+
+    if (context.status != S3StatusOK) {
+        if (context.error) {
+            g_propagate_error(error, context.error);
+        } else {
+            g_set_error(error, g_quark_from_static_string("S3Client"), context.status, "Failed to download object with status: %d", context.status);
+        }
+        remove(local_file_path);
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+// #############################################################################
 // # Download Object to Buffer
 // #############################################################################
 
