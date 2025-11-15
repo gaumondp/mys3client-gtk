@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0"/>
+  <object class="GtkDialog" id="settings_dialog">
+    <property name="title" translatable="yes">Settings</property>
+    <property name="modal">true</property>
+    <property name="destroy-with-parent">true</property>
+    <child internal-child="content_area">
+      <object class="GtkBox">
+        <property name="orientation">vertical</property>
+        <property name="spacing">12</property>
+        <property name="margin-start">12</property>
+        <property name="margin-end">12</property>
+        <property name="margin-top">12</property>
+        <property name="margin-bottom">12</property>
+        <child>
+          <object class="GtkGrid">
+            <property name="row-spacing">6</property>
+            <property name="column-spacing">6</property>
+            <child>
+              <object class="GtkLabel">
+                <property name="label" translatable="yes">Endpoint</property>
+                <property name="halign">end</property>
+                <layout>
+                  <property name="column">0</property>
+                  <property name="row">0</property>
+                </layout>
+              </object>
+            </child>
+            <child>
+              <object class="GtkEntry" id="endpoint_entry"/>
+            </child>
+            <child>
+              <object class="GtkLabel">
+                <property name="label" translatable="yes">Region</property>
+                <property name="halign">end</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkEntry" id="region_entry"/>
+            </child>
+            <child>
+              <object class="GtkLabel">
+                <property name="label" translatable="yes">Bucket</property>
+                <property name="halign">end</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkEntry" id="bucket_entry"/>
+            </child>
+            <child>
+              <object class="GtkLabel">
+                <property name="label" translatable="yes">Access Key</property>
+                <property name="halign">end</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkEntry" id="access_key_entry"/>
+            </child>
+            <child>
+              <object class="GtkLabel">
+                <property name="label" translatable="yes">Secret Key</property>
+                <property name="halign">end</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkPasswordEntry" id="secret_key_entry"/>
+            </child>
+            <child>
+              <object class="GtkCheckButton" id="path_style_check">
+                <property name="label" translatable="yes">Path-style addressing</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkCheckButton" id="ssl_check">
+                <property name="label" translatable="yes">Use SSL</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+            <object class="GtkBox">
+                <property name="orientation">horizontal</property>
+                <property name="spacing">6</property>
+                <child>
+                    <object class="GtkButton" id="test_connection_button">
+                        <property name="label" translatable="yes">_Test Connection</property>
+                    </object>
+                </child>
+                <child>
+                    <object class="GtkLabel" id="connection_status_label"/>
+                </child>
+            </object>
+        </child>
+      </object>
+    </child>
+    <child type="action">
+      <object class="GtkButton" id="cancel_button">
+        <property name="label" translatable="yes">_Cancel</property>
+      </object>
+    </child>
+    <child type="action">
+      <object class="GtkButton" id="save_button">
+        <property name="label" translatable="yes">_Save</property>
+      </object>
+    </child>
+  </object>
+</interface>

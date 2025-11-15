@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gresources>
+  <gresource prefix="/com/example/mys3client">
+    <file>res/settings_dialog.ui</file>
+    <file>res/main_window.ui</file>
+  </gresource>
+</gresources>

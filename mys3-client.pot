@@ -1,0 +1,94 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the mys3-client package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: mys3-client\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-11-15 21:11+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=CHARSET\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: src/main.c:96
+msgid "Buckets"
+msgstr ""
+
+#: res/main_window.ui:5
+msgid "MyS3 Client"
+msgstr ""
+
+#: res/main_window.ui:18
+msgid "_Connect"
+msgstr ""
+
+#: res/main_window.ui:24
+msgid "New _Folder"
+msgstr ""
+
+#: res/main_window.ui:30
+msgid "_Upload"
+msgstr ""
+
+#: res/main_window.ui:36
+msgid "_Download"
+msgstr ""
+
+#: res/main_window.ui:47
+msgid "_Settings"
+msgstr ""
+
+#: res/main_window.ui:79
+msgid "Files"
+msgstr ""
+
+#: res/settings_dialog.ui:5
+msgid "Settings"
+msgstr ""
+
+#: res/settings_dialog.ui:22
+msgid "Endpoint"
+msgstr ""
+
+#: res/settings_dialog.ui:35
+msgid "Region"
+msgstr ""
+
+#: res/settings_dialog.ui:44
+msgid "Bucket"
+msgstr ""
+
+#: res/settings_dialog.ui:53
+msgid "Access Key"
+msgstr ""
+
+#: res/settings_dialog.ui:62
+msgid "Secret Key"
+msgstr ""
+
+#: res/settings_dialog.ui:71
+msgid "Path-style addressing"
+msgstr ""
+
+#: res/settings_dialog.ui:76
+msgid "Use SSL"
+msgstr ""
+
+#: res/settings_dialog.ui:87
+msgid "_Test Connection"
+msgstr ""
+
+#: res/settings_dialog.ui:99
+msgid "_Cancel"
+msgstr ""
+
+#: res/settings_dialog.ui:104
+msgid "_Save"
+msgstr ""
