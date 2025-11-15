@@ -70,6 +70,21 @@ gchar* s3_client_download_object_to_buffer(const gchar *endpoint,
                                            gsize *length,
                                            GError **error);
 
+gboolean s3_client_download_object(const gchar *endpoint,
+                                   const gchar *access_key,
+                                   const gchar *secret_key,
+                                   const gchar *bucket,
+                                   const gchar *key,
+                                   const gchar *local_file_path,
+                                   gboolean use_ssl,
+                                   S3DownloadProgressCallback progress_callback,
+                                   gpointer progress_user_data,
+                                   GError **error);
+
+typedef gboolean (*S3DownloadProgressCallback)(guint64 downloaded_bytes,
+                                             guint64 total_bytes,
+                                             gpointer user_data);
+
 void s3_client_free_object_list(GList *object_list);
 void s3_client_free_bucket_list(GList *bucket_list);
 
