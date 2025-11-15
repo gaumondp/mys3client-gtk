@@ -1,0 +1,40 @@
+# WIP - Remaining Tasks for MyS3 Client
+
+This document outlines the remaining work required to complete the MyS3 Client application based on the original project specification.
+
+## Phase 4: Core File Operations (CRUD)
+- [ ] **Download:** Implement file download (S3 GET Object) with a progress indicator and cancel button.
+- [ ] **Rename:** Implement file/folder rename (S3 COPY + DELETE).
+- [ ] **Delete:** Implement file/folder deletion (S3 DELETE for single objects, recursive list-and-delete for folders).
+- [ ] **Refresh:** Connect the "Refresh" button to re-fetch the current bucket/folder listing.
+- [ ] **UI Connection:** Connect the `rename_button`, `delete_button`, and `download_button` signals to their respective handler functions.
+- [ ] **Confirmations:** Implement modal dialogs to confirm destructive actions (delete, overwrite).
+
+## Phase 5: Embedded Scintilla Text Editor
+- [ ] **Build Fix:** Resolve the `SciLexer.h` not found build error by correctly cloning the Scintilla repository and configuring the include path in `meson.build`.
+- [ ] **Save Functionality:** Implement saving changes from the editor back to S3 (S3 PUT Object).
+- [ ] **Find/Replace:** Add a basic find/replace dialog and functionality to the editor.
+- [ ] **Unsaved Changes:** Implement a confirmation dialog to warn the user about unsaved changes before closing an editor tab.
+
+## Phase 6: Internationalization (i18n)
+- [ ] **Full Translation:** Complete the translation of all UI strings in the `.po` files for all specified languages (en, fr, de, es).
+- [ ] **Dynamic Language Switching:** Implement the logic to dynamically apply the selected language, ideally without requiring a full application restart.
+
+## Advanced Features & UX
+- [ ] **Multipart Upload:**
+  - [ ] Implement the full multipart upload flow (`CreateMultipartUpload`, `UploadPart`, `CompleteMultipartUpload`, `AbortMultipartUpload`).
+  - [ ] Add configuration for multipart threshold, part size, and concurrency to the settings dialog.
+- [ ] **Drag and Drop:**
+  - [ ] Implement drag-and-drop from the OS to the file list for uploads.
+  - [ ] Implement drag-and-drop from the file list to the OS for downloads.
+- [ ] **Context Menus:** Add right-click context menus to the bucket/folder tree and the file list for quick access to CRUD operations.
+- [ ] **Credential Storage (Platform-Specific):**
+  - [ ] **macOS:** Replace the mock implementation with native Keychain integration for storing credentials.
+  - [ ] **Windows:** Replace the mock implementation with native Credential Manager/DPAPI integration.
+
+## Build, Packaging, and Finalization
+- [ ] **Windows Installer:** Create a build pipeline to package the application as a Windows installer (`.msi` or `.exe`), including all necessary GTK runtime libraries.
+- [ ] **macOS App Bundle:** Create a build pipeline to package the application as a macOS App Bundle (`.app`) and a `.dmg` disk image.
+- [ ] **Code Signing:** (Optional but recommended) Implement code signing for both Windows and macOS packages.
+- [ ] **Resolve Deprecation Warnings:** Refactor the code to replace deprecated GTK functions (e.g., `GtkTreeView`, `GtkTreeStore`) with their modern equivalents (`GtkListView`, `GtkColumnView`, `GtkTreeListModel`) to ensure future compatibility.
+- [ ] **Testing:** Perform comprehensive manual testing for all features on both Windows and macOS.
