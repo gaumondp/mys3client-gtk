@@ -4,6 +4,7 @@
 #include <locale.h>
 #include <unistd.h>
 #include <string.h>
+#include <time.h>
 #include "settings.h"
 #include "s3_client.h"
 #include "credential_storage.h"
@@ -53,6 +54,12 @@ static gboolean on_window_close_request(GtkApplicationWindow *window, gpointer u
 static MainWindow* main_window_new(GtkApplication *app);
 static DownloadProgressData* download_progress_dialog_new(GtkWindow *parent, const gchar *title);
 static gboolean download_progress_callback(guint64 downloaded_bytes, guint64 total_bytes, gpointer user_data);
+static gboolean on_file_list_drop(GtkDropTarget *target, const GValue *value, gdouble x, gdouble y, gpointer user_data);
+static GdkDragAction on_file_list_drag_enter(GtkDropTarget* self, gdouble x, gdouble y, gpointer user_data);
+static void on_file_list_drag_leave(GtkDropTarget* self, gpointer user_data);
+static void on_folder_tree_button_press(GtkGestureClick *gesture, int n_press, double x, double y, gpointer user_data);
+static void on_file_list_button_press(GtkGestureClick *gesture, int n_press, double x, double y, gpointer user_data);
+static void on_properties_activated(GSimpleAction *action, GVariant *parameter, gpointer user_data);
 
 // #############################################################################
 // # Settings Dialog Implementation
@@ -472,6 +479,173 @@ static void on_refresh_button_clicked(GtkButton *b, gpointer user_data) {
     refresh_current_folder((MainWindow*)user_data);
 }
 
+static GdkDragAction on_file_list_drag_enter(GtkDropTarget* self, gdouble x, gdouble y, gpointer user_data) {
+    (void)self; (void)x; (void)y;
+    MainWindow *mw = (MainWindow*)user_data;
+    gtk_widget_add_css_class(GTK_WIDGET(mw->file_list_view), "drop-target");
+    return GDK_ACTION_COPY;
+}
+
+static void on_file_list_drag_leave(GtkDropTarget* self, gpointer user_data) {
+    (void)self;
+    MainWindow *mw = (MainWindow*)user_data;
+    gtk_widget_remove_css_class(GTK_WIDGET(mw->file_list_view), "drop-target");
+}
+
+static gboolean on_file_list_drop(GtkDropTarget *target, const GValue *value, gdouble x, gdouble y, gpointer user_data) {
+    (void)target; (void)x; (void)y;
+    MainWindow *mw = (MainWindow*)user_data;
+    gboolean success = FALSE;
+
+    GtkTreeSelection *selection = gtk_tree_view_get_selection(mw->folder_tree_view);
+    GtkTreeModel *model;
+    GtkTreeIter iter;
+    gchar *current_path = NULL;
+
+    if (gtk_tree_selection_get_selected(selection, &model, &iter)) {
+        gtk_tree_model_get(model, &iter, FOLDER_COL_FULL_PATH, &current_path, -1);
+    }
+
+    if (!current_path) {
+        gtk_statusbar_push(mw->statusbar, 0, _("Please select a bucket or folder first."));
+        gtk_widget_remove_css_class(GTK_WIDGET(mw->file_list_view), "drop-target");
+        return FALSE;
+    }
+
+    GFile *file = g_value_get_object(value);
+    if (G_IS_FILE(file)) {
+        gchar *path = g_file_get_path(file);
+        if (path) {
+            gchar *key = g_path_get_basename(path);
+            g_autoptr(GError) error = NULL;
+            if (s3_client_upload_object(mw->settings->endpoint, mw->access_key, mw->secret_key, current_path, key, path, mw->settings->use_ssl, &error)) {
+                g_autofree gchar *msg = g_strdup_printf(_("'%s' uploaded successfully."), key);
+                gtk_statusbar_push(mw->statusbar, 0, msg);
+                refresh_current_folder(mw);
+                success = TRUE;
+            } else {
+                g_autofree gchar *msg = g_strdup_printf(_("Failed to upload '%s': %s"), key, error->message);
+                gtk_statusbar_push(mw->statusbar, 0, msg);
+            }
+            g_free(key);
+            g_free(path);
+        }
+    }
+    g_free(current_path);
+    gtk_widget_remove_css_class(GTK_WIDGET(mw->file_list_view), "drop-target");
+    return success;
+}
+
+static void on_properties_activated(GSimpleAction *action, GVariant *parameter, gpointer user_data) {
+    (void)action;
+    MainWindow *mw = (MainWindow*)user_data;
+    const gchar *item_path = g_variant_get_string(parameter, NULL);
+
+    S3Object *obj = NULL;
+    GListModel *model = G_LIST_MODEL(gtk_list_view_get_model(mw->file_list_view));
+    for (guint i = 0; i < g_list_model_get_n_items(model); ++i) {
+        S3Object *current_obj = g_list_model_get_item(model, i);
+        if (g_strcmp0(current_obj->key, item_path) == 0) {
+            obj = current_obj;
+            break;
+        }
+        g_object_unref(current_obj);
+    }
+
+    g_autofree gchar *message = NULL;
+    if (obj) {
+        char time_buf[128];
+        strftime(time_buf, sizeof(time_buf), "%c", localtime(&obj->last_modified));
+        message = g_strdup_printf("Name: %s\nSize: %" G_GUINT64_FORMAT " bytes\nLast Modified: %s",
+                                  obj->key, obj->size, time_buf);
+        g_object_unref(obj);
+    } else {
+        message = g_strdup_printf("Properties for folder: %s\n\n(Folder properties not yet implemented)", item_path);
+    }
+
+    GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(mw->window),
+                                               GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+                                               GTK_MESSAGE_INFO,
+                                               GTK_BUTTONS_OK,
+                                               "%s", message);
+    gtk_window_set_title(GTK_WINDOW(dialog), _("Properties..."));
+    g_signal_connect_swapped(dialog, "response", G_CALLBACK(gtk_window_destroy), dialog);
+    gtk_window_present(GTK_WINDOW(dialog));
+}
+
+static void on_folder_tree_button_press(GtkGestureClick *gesture, int n_press, double x, double y, gpointer user_data) {
+    (void)n_press;
+    MainWindow *mw = (MainWindow*)user_data;
+
+    if (gtk_gesture_single_get_current_button(GTK_GESTURE_SINGLE(gesture)) != GDK_BUTTON_SECONDARY) {
+        return;
+    }
+
+    GtkTreePath *path;
+    GtkTreeIter iter;
+    if (!gtk_tree_view_get_path_at_pos(mw->folder_tree_view, x, y, &path, NULL, NULL, NULL)) {
+        return;
+    }
+
+    GtkTreeModel *model = gtk_tree_view_get_model(mw->folder_tree_view);
+    gtk_tree_model_get_iter(model, &iter, path);
+    gchar *full_path = NULL;
+    gtk_tree_model_get(model, &iter, FOLDER_COL_FULL_PATH, &full_path, -1);
+
+    GMenu *menu = g_menu_new();
+    g_menu_append(menu, _("New Folder..."), "win.new-folder");
+    g_menu_append(menu, _("Refresh"), "win.refresh");
+    g_menu_append(menu, _("Properties..."), "win.properties");
+    g_action_set_enabled(g_action_map_lookup_action(G_ACTION_MAP(mw->window), "properties"), TRUE);
+    g_simple_action_set_enabled(G_SIMPLE_ACTION(g_action_map_lookup_action(G_ACTION_MAP(mw->window), "properties")), TRUE);
+    g_action_change_state(G_ACTION(g_action_map_lookup_action(G_ACTION_MAP(mw->window), "properties")), g_variant_new_string(full_path));
+
+    GtkWidget *popover = gtk_popover_menu_new_from_model(G_MENU_MODEL(menu));
+    gtk_popover_set_pointing_to(GTK_POPOVER(popover), &(const GdkRectangle){x,y,1,1});
+    gtk_popover_popup(GTK_POPOVER(popover));
+    g_object_unref(menu);
+    g_free(full_path);
+    gtk_tree_path_free(path);
+}
+
+static void on_file_list_button_press(GtkGestureClick *gesture, int n_press, double x, double y, gpointer user_data) {
+    (void)n_press;
+    MainWindow *mw = (MainWindow*)user_data;
+
+    if (gtk_gesture_single_get_current_button(GTK_GESTURE_SINGLE(gesture)) != GDK_BUTTON_SECONDARY) {
+        return;
+    }
+
+    GtkSelectionModel *selection_model = gtk_list_view_get_model(mw->file_list_view);
+    GtkSingleSelection *selection = GTK_SINGLE_SELECTION(selection_model);
+    guint position = gtk_single_selection_get_selected(selection);
+
+    if (position == GTK_INVALID_LIST_POSITION) {
+        return;
+    }
+
+    S3Object *obj = g_list_model_get_item(G_LIST_MODEL(selection_model), position);
+    if (!obj) {
+        return;
+    }
+
+    GMenu *menu = g_menu_new();
+    g_menu_append(menu, _("Upload..."), "win.upload");
+    g_menu_append(menu, _("Download..."), "win.download");
+    g_menu_append(menu, _("Rename..."), "win.rename");
+    g_menu_append(menu, _("Delete..."), "win.delete");
+    g_menu_append(menu, _("Properties..."), "win.properties");
+    g_action_set_enabled(g_action_map_lookup_action(G_ACTION_MAP(mw->window), "properties"), TRUE);
+    g_simple_action_set_enabled(G_SIMPLE_ACTION(g_action_map_lookup_action(G_ACTION_MAP(mw->window), "properties")), TRUE);
+    g_action_change_state(G_ACTION(g_action_map_lookup_action(G_ACTION_MAP(mw->window), "properties")), g_variant_new_string(obj->key));
+
+    GtkWidget *popover = gtk_popover_menu_new_from_model(G_MENU_MODEL(menu));
+    gtk_popover_set_pointing_to(GTK_POPOVER(popover), &(const GdkRectangle){x,y,1,1});
+    gtk_popover_popup(GTK_POPOVER(popover));
+    g_object_unref(menu);
+    g_object_unref(obj);
+}
+
 static void set_sourceview_language_from_filename(GtkSourceBuffer *buffer, const gchar *filename) {
     GtkSourceLanguageManager *lm = gtk_source_language_manager_get_default();
     GtkSourceLanguage *lang = gtk_source_language_manager_get_language(lm, g_str_has_suffix(filename, ".xml") ? "xml" :
@@ -757,6 +931,18 @@ static MainWindow* main_window_new(GtkApplication *app) {
     GtkSingleSelection *sel = gtk_single_selection_new(G_LIST_MODEL(mw->file_list_store));
     gtk_list_view_set_model(mw->file_list_view, GTK_SELECTION_MODEL(sel));
     gtk_list_view_set_factory(mw->file_list_view, f);
+
+    GtkDropTarget *drop_target = gtk_drop_target_new(G_TYPE_FILE, GDK_ACTION_COPY);
+    g_signal_connect(drop_target, "drop", G_CALLBACK(on_file_list_drop), mw);
+    g_signal_connect(drop_target, "enter", G_CALLBACK(on_file_list_drag_enter), mw);
+    g_signal_connect(drop_target, "leave", G_CALLBACK(on_file_list_drag_leave), mw);
+    gtk_widget_add_controller(GTK_WIDGET(mw->file_list_view), GTK_EVENT_CONTROLLER(drop_target));
+
+    GtkCssProvider *provider = gtk_css_provider_new();
+    gtk_css_provider_load_from_data(provider, ".drop-target { background-color: #4CAF50; }", -1);
+    gtk_style_context_add_provider_for_display(gdk_display_get_default(), GTK_STYLE_PROVIDER(provider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+    g_object_unref(provider);
+
     g_signal_connect(mw->folder_tree_view, "row-activated", G_CALLBACK(on_folder_tree_row_activated), mw);
     g_signal_connect(mw->file_list_view, "activate", G_CALLBACK(on_file_list_row_activated), mw);
     g_signal_connect(GTK_BUTTON(gtk_builder_get_object(b, "settings_button")), "clicked", G_CALLBACK(on_settings_button_clicked), mw);
@@ -770,9 +956,47 @@ static MainWindow* main_window_new(GtkApplication *app) {
     g_signal_connect(mw->find_button, "clicked", G_CALLBACK(on_find_button_clicked), mw);
     g_signal_connect(mw->window, "close-request", G_CALLBACK(on_window_close_request), mw);
 
+    GtkGesture *right_click_gesture_folder = gtk_gesture_click_new();
+    g_signal_connect(right_click_gesture_folder, "pressed", G_CALLBACK(on_folder_tree_button_press), mw);
+
+    GtkGesture *right_click_gesture_file = gtk_gesture_click_new();
+    g_signal_connect(right_click_gesture_file, "pressed", G_CALLBACK(on_file_list_button_press), mw);
+
+    gtk_widget_add_controller(GTK_WIDGET(mw->folder_tree_view), GTK_EVENT_CONTROLLER(right_click_gesture_folder));
+    gtk_widget_add_controller(GTK_WIDGET(mw->file_list_view), GTK_EVENT_CONTROLLER(right_click_gesture_file));
+
+
     GSimpleAction *lang_action = g_simple_action_new_stateful("language", g_variant_type_new("s"), g_variant_new_string("en"));
     g_signal_connect(lang_action, "activate", G_CALLBACK(on_language_changed), mw);
     g_action_map_add_action(G_ACTION_MAP(app), G_ACTION(lang_action));
+
+    GSimpleAction *new_folder_action = g_simple_action_new("new-folder", NULL);
+    g_signal_connect(new_folder_action, "activate", G_CALLBACK(on_new_folder_button_clicked), mw);
+    g_action_map_add_action(G_ACTION_MAP(mw->window), G_ACTION(new_folder_action));
+
+    GSimpleAction *upload_action = g_simple_action_new("upload", NULL);
+    g_signal_connect(upload_action, "activate", G_CALLBACK(on_upload_button_clicked), mw);
+    g_action_map_add_action(G_ACTION_MAP(mw->window), G_ACTION(upload_action));
+
+    GSimpleAction *download_action = g_simple_action_new("download", NULL);
+    g_signal_connect(download_action, "activate", G_CALLBACK(on_download_button_clicked), mw);
+    g_action_map_add_action(G_ACTION_MAP(mw->window), G_ACTION(download_action));
+
+    GSimpleAction *rename_action = g_simple_action_new("rename", NULL);
+    g_signal_connect(rename_action, "activate", G_CALLBACK(on_rename_button_clicked), mw);
+    g_action_map_add_action(G_ACTION_MAP(mw->window), G_ACTION(rename_action));
+
+    GSimpleAction *delete_action = g_simple_action_new("delete", NULL);
+    g_signal_connect(delete_action, "activate", G_CALLBACK(on_delete_button_clicked), mw);
+    g_action_map_add_action(G_ACTION_MAP(mw->window), G_ACTION(delete_action));
+
+    GSimpleAction *refresh_action = g_simple_action_new("refresh", NULL);
+    g_signal_connect(refresh_action, "activate", G_CALLBACK(on_refresh_button_clicked), mw);
+    g_action_map_add_action(G_ACTION_MAP(mw->window), G_ACTION(refresh_action));
+
+    GSimpleAction *properties_action = g_simple_action_new("properties", g_variant_type_new("s"));
+    g_signal_connect(properties_action, "activate", G_CALLBACK(on_properties_activated), mw);
+    g_action_map_add_action(G_ACTION_MAP(mw->window), G_ACTION(properties_action));
 
     GtkMenuButton *lang_button = GTK_MENU_BUTTON(gtk_builder_get_object(b, "language_button"));
     GMenu *lang_menu = g_menu_new();
