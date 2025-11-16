@@ -13,16 +13,13 @@ MyS3 Client is a native desktop application for macOS and Windows designed for m
 ## Platform Support
 
 **macOS:** Fully supported, including secure credential storage.
-**Windows:** Fully supported, including secure credential storage using the Credential Manager.
-**Linux:** Not currently supported for secure credential storage. The application will compile and run, but with the same mock credential storage as Windows.
 
-## Build System
+**Windows:** Compiles and runs, but uses a mock credential storage system (secrets are not saved).
+**Linux:** While the application may compile and run on Linux, it is not officially supported.
+=======
 
-This project uses the **Meson** build system. Meson was chosen for its speed, simplicity, and excellent integration with the GNOME/GTK ecosystem.
 
-## Getting Started
-
-### Dependencies
+## Dependencies
 
 To build and run this application, you will need the following dependencies:
 
@@ -35,40 +32,8 @@ To build and run this application, you will need the following dependencies:
 *   libs3
 *   gettext
 
-On a Debian-based system (like Ubuntu), you can install these with the following command:
 
-```bash
-sudo apt-get install -y build-essential meson ninja-build libgtk-4-dev libgtksourceview-5-dev libglib2.0-dev libs3-dev gettext
-```
+## Installation
 
-### Building
-
-Once you have the dependencies installed, you can build the application with the following commands:
-
-```bash
-meson setup builddir
-meson compile -C builddir
-```
-
-To save a log of the build process, you can redirect the output of the compile command to a file:
-```bash
-meson compile -C builddir > build_log.txt 2>&1
-```
-
-### Installation
-
-To install the application on your system, run the following command from the project root:
-
-```bash
-sudo meson install -C builddir
-```
-
-## Logging
-
-The application generates runtime logs that can be useful for debugging. The log files are stored in the following locations:
-
-*   **macOS:** `~/Library/Logs/MyS3Client/`
-*   **Windows:** `%APPDATA%\\MyS3Client\\Logs\\`
-*   **Linux:** `~/.local/state/MyS3Client/logs/`
-
-Logging preferences can be configured in the application's settings dialog.
+For detailed instructions on how to compile and install MyS3 Client on your platform, please refer to the [INSTALL.md](INSTALL.md) file.
+=======
