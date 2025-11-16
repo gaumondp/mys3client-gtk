@@ -27,7 +27,7 @@ typedef struct _FolderItem {
 } FolderItem;
 
 typedef struct { GtkApplicationWindow *window; GtkListView *folder_tree_view; GtkTreeListModel *folder_tree_model; GtkListView *file_list_view; GListStore *file_list_store; GtkNotebook *notebook; GtkStatusbar *statusbar; GtkButton *find_button; GtkWidget *find_dialog; GtkEntry *find_entry; GtkEntry *replace_entry; MyS3Settings *settings; gchar *access_key; gchar *secret_key; } MainWindow;
-typedef struct { GtkDialog *dialog; GtkEntry *endpoint_entry; GtkEntry *region_entry; GtkEntry *bucket_entry; GtkEntry *access_key_entry; GtkPasswordEntry *secret_key_entry; GtkCheckButton *path_style_check; GtkCheckButton *ssl_check; GtkLabel *connection_status_label; GtkButton *save_button; GtkButton *cancel_button; GtkButton *test_connection_button; gboolean connection_test_successful; } SettingsDialog;
+typedef struct { GtkDialog *dialog; GtkEntry *endpoint_entry; GtkEntry *region_entry; GtkEntry *bucket_entry; GtkEntry *access_key_entry; GtkPasswordEntry *secret_key_entry; GtkCheckButton *path_style_check; GtkCheckButton *ssl_check; GtkLabel *connection_status_label; GtkButton *save_button; GtkButton *cancel_button; GtkButton *test_connection_button; gboolean connection_test_successful; GtkCheckButton *logging_enabled_check; GtkDropDown *log_level_dropdown; GtkButton *open_log_folder_button;} SettingsDialog;
 typedef struct { MainWindow *mw; gchar *current_bucket; } NewFolderDialogData;
 typedef struct { MainWindow *mw; S3Object *obj; GtkDialog *dialog; } DeleteConfirmationData;
 typedef struct { MainWindow *mw; S3Object *obj; GtkDialog *dialog; } RenameDialogData;
@@ -66,9 +66,136 @@ static void show_error_dialog(GtkWindow *parent, const gchar *message);
 // #############################################################################
 // # Settings Dialog Implementation
 // #############################################################################
-static void populate_settings_dialog(SettingsDialog *sd, MyS3Settings *s) { /* Full implementation */ }
-static SettingsDialog* settings_dialog_new(GtkWindow *p) { /* Full implementation */ return g_new0(SettingsDialog,1); }
-static void open_settings_dialog(GtkWindow *parent) { MyS3Settings *s = settings_load(); SettingsDialog *sd = settings_dialog_new(parent); populate_settings_dialog(sd, s); settings_free(s); gtk_window_present(GTK_WINDOW(sd->dialog)); }
+static void on_open_log_folder_button_clicked(GtkButton *button, gpointer user_data) {
+    (void)button; (void)user_data;
+    const gchar* log_dir = logging_get_directory();
+    if (log_dir) {
+        g_autoptr(GFile) file = g_file_new_for_path(log_dir);
+        g_app_info_launch_default_for_uri(g_file_get_uri(file), NULL, NULL);
+    }
+}
+
+static void on_save_settings_clicked(GtkButton *button, gpointer user_data) {
+    (void)button;
+    SettingsDialog *sd = (SettingsDialog*)user_data;
+    MyS3Settings s = {0};
+    s.endpoint = g_strdup(gtk_editable_get_text(GTK_EDITABLE(sd->endpoint_entry)));
+    s.region = g_strdup(gtk_editable_get_text(GTK_EDITABLE(sd->region_entry)));
+    s.bucket = g_strdup(gtk_editable_get_text(GTK_EDITABLE(sd->bucket_entry)));
+    s.use_ssl = gtk_check_button_get_active(sd->ssl_check);
+    s.use_path_style = gtk_check_button_get_active(sd->path_style_check);
+    s.logging_enabled = gtk_check_button_get_active(sd->logging_enabled_check);
+    s.log_level = gtk_drop_down_get_selected(sd->log_level_dropdown);
+    settings_save(&s);
+
+    logging_set_level(s.logging_enabled ? (LogLevel)s.log_level : LOG_LEVEL_DISABLED);
+
+    gtk_window_destroy(GTK_WINDOW(sd->dialog));
+    g_free(s.endpoint);
+    g_free(s.region);
+    g_free(s.bucket);
+}
+
+static void populate_settings_dialog(SettingsDialog *sd, MyS3Settings *s) {
+    gtk_editable_set_text(GTK_EDITABLE(sd->endpoint_entry), s->endpoint ? s->endpoint : "");
+    gtk_editable_set_text(GTK_EDITABLE(sd->region_entry), s->region ? s->region : "");
+    gtk_editable_set_text(GTK_EDITABLE(sd->bucket_entry), s->bucket ? s->bucket : "");
+    gtk_check_button_set_active(sd->ssl_check, s->use_ssl);
+    gtk_check_button_set_active(sd->path_style_check, s->use_path_style);
+    gtk_check_button_set_active(sd->logging_enabled_check, s->logging_enabled);
+    gtk_drop_down_set_selected(sd->log_level_dropdown, s->log_level);
+}
+
+static SettingsDialog* settings_dialog_new(GtkWindow *p) {
+    SettingsDialog *sd = g_new0(SettingsDialog, 1);
+    sd->dialog = GTK_DIALOG(gtk_window_new());
+    gtk_window_set_transient_for(GTK_WINDOW(sd->dialog), p);
+    gtk_window_set_modal(GTK_WINDOW(sd->dialog), TRUE);
+    gtk_window_set_destroy_with_parent(GTK_WINDOW(sd->dialog), TRUE);
+    gtk_window_set_title(GTK_WINDOW(sd->dialog), _("Settings"));
+
+    GtkWidget *content_area = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
+    gtk_widget_set_margin_start(content_area, 12);
+    gtk_widget_set_margin_end(content_area, 12);
+    gtk_widget_set_margin_top(content_area, 12);
+    gtk_widget_set_margin_bottom(content_area, 12);
+    gtk_window_set_child(GTK_WINDOW(sd->dialog), content_area);
+
+    GtkWidget *grid = gtk_grid_new();
+    gtk_grid_set_column_spacing(GTK_GRID(grid), 6);
+    gtk_grid_set_row_spacing(GTK_GRID(grid), 6);
+    gtk_box_append(GTK_BOX(content_area), grid);
+
+    sd->endpoint_entry = GTK_ENTRY(gtk_entry_new());
+    gtk_grid_attach(GTK_GRID(grid), gtk_label_new_with_mnemonic(_("_Endpoint:")), 0, 0, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), GTK_WIDGET(sd->endpoint_entry), 1, 0, 2, 1);
+
+    sd->region_entry = GTK_ENTRY(gtk_entry_new());
+    gtk_grid_attach(GTK_GRID(grid), gtk_label_new_with_mnemonic(_("_Region:")), 0, 1, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), GTK_WIDGET(sd->region_entry), 1, 1, 2, 1);
+
+    sd->bucket_entry = GTK_ENTRY(gtk_entry_new());
+    gtk_grid_attach(GTK_GRID(grid), gtk_label_new_with_mnemonic(_("_Bucket:")), 0, 2, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), GTK_WIDGET(sd->bucket_entry), 1, 2, 2, 1);
+
+    sd->access_key_entry = GTK_ENTRY(gtk_entry_new());
+    gtk_grid_attach(GTK_GRID(grid), gtk_label_new_with_mnemonic(_("_Access Key:")), 0, 3, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), GTK_WIDGET(sd->access_key_entry), 1, 3, 2, 1);
+
+    sd->secret_key_entry = GTK_PASSWORD_ENTRY(gtk_password_entry_new());
+    gtk_grid_attach(GTK_GRID(grid), gtk_label_new_with_mnemonic(_("_Secret Key:")), 0, 4, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), GTK_WIDGET(sd->secret_key_entry), 1, 4, 2, 1);
+
+    sd->ssl_check = GTK_CHECK_BUTTON(gtk_check_button_new_with_label(_("Use _SSL")));
+    gtk_grid_attach(GTK_GRID(grid), GTK_WIDGET(sd->ssl_check), 0, 5, 3, 1);
+
+    sd->path_style_check = GTK_CHECK_BUTTON(gtk_check_button_new_with_label(_("Use _Path Style")));
+    gtk_grid_attach(GTK_GRID(grid), GTK_WIDGET(sd->path_style_check), 0, 6, 3, 1);
+
+    GtkWidget *separator = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
+    gtk_grid_attach(GTK_GRID(grid), separator, 0, 8, 3, 1);
+
+    GtkWidget *logging_label = gtk_label_new_with_mnemonic(_("_Logging"));
+    gtk_grid_attach(GTK_GRID(grid), logging_label, 0, 9, 1, 1);
+
+    sd->logging_enabled_check = GTK_CHECK_BUTTON(gtk_check_button_new_with_label(_("Enable Logging")));
+    gtk_grid_attach(GTK_GRID(grid), GTK_WIDGET(sd->logging_enabled_check), 1, 9, 2, 1);
+
+    GtkWidget *log_level_label = gtk_label_new_with_mnemonic(_("Log _Level:"));
+    gtk_grid_attach(GTK_GRID(grid), log_level_label, 0, 10, 1, 1);
+
+    const char *levels[] = {"Debug", "Warning", "Error", NULL};
+    sd->log_level_dropdown = GTK_DROP_DOWN(gtk_drop_down_new_from_strings(levels));
+    gtk_grid_attach(GTK_GRID(grid), GTK_WIDGET(sd->log_level_dropdown), 1, 10, 2, 1);
+
+    sd->open_log_folder_button = GTK_BUTTON(gtk_button_new_with_label(_("Open Log Folder")));
+    g_signal_connect(sd->open_log_folder_button, "clicked", G_CALLBACK(on_open_log_folder_button_clicked), NULL);
+    gtk_grid_attach(GTK_GRID(grid), GTK_WIDGET(sd->open_log_folder_button), 1, 11, 1, 1);
+
+    GtkWidget *log_retention_label = gtk_label_new(_("Keeps the last 5 runs."));
+    gtk_grid_attach(GTK_GRID(grid), log_retention_label, 2, 11, 1, 1);
+
+    GtkWidget *button_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+    gtk_widget_set_halign(button_box, GTK_ALIGN_END);
+    sd->save_button = GTK_BUTTON(gtk_button_new_with_label(_("_Save")));
+    sd->cancel_button = GTK_BUTTON(gtk_button_new_with_label(_("_Cancel")));
+    gtk_box_append(GTK_BOX(button_box), GTK_WIDGET(sd->save_button));
+    gtk_box_append(GTK_BOX(button_box), GTK_WIDGET(sd->cancel_button));
+    gtk_box_append(GTK_BOX(content_area), button_box);
+
+    g_signal_connect(sd->save_button, "clicked", G_CALLBACK(on_save_settings_clicked), sd);
+    g_signal_connect_swapped(sd->cancel_button, "clicked", G_CALLBACK(gtk_window_destroy), sd->dialog);
+
+    return sd;
+}
+
+static void open_settings_dialog(GtkWindow *parent) {
+    MyS3Settings *s = settings_load();
+    SettingsDialog *sd = settings_dialog_new(parent);
+    populate_settings_dialog(sd, s);
+    settings_free(s);
+    gtk_window_present(GTK_WINDOW(sd->dialog));
+}
 
 
 // #############################################################################
@@ -1041,6 +1168,13 @@ static gboolean on_window_close_request(GtkApplicationWindow *window, gpointer u
 
 static void app_activate (GApplication *app) {
     MyS3Settings *s = settings_load();
+
+    if (s->logging_enabled) {
+        logging_set_level((LogLevel)s->log_level);
+    } else {
+        logging_set_level(LOG_LEVEL_DISABLED);
+    }
+
     if (!s->endpoint || !*(s->endpoint)) {
         GtkWindow* w = GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(app)));
         open_settings_dialog(w);
@@ -1052,6 +1186,7 @@ static void app_activate (GApplication *app) {
 }
 
 int main (int argc, char *argv[]) {
+    logging_init();
     setlocale(LC_ALL, "");
     bindtextdomain("mys3-client", "po");
     textdomain("mys3-client");
@@ -1069,5 +1204,6 @@ int main (int argc, char *argv[]) {
 
     status = g_application_run (G_APPLICATION (app), argc, argv);
     g_object_unref(provider);
+    logging_cleanup();
     return status;
 }

@@ -3,12 +3,16 @@
 
 #include <gtk/gtk.h>
 
+#include "logging.h"
+
 typedef struct {
   gchar *endpoint;
   gchar *region;
   gchar *bucket;
   gboolean use_ssl;
   gboolean use_path_style;
+  gboolean logging_enabled;
+  LogLevel log_level;
 } MyS3Settings;
 
 MyS3Settings *settings_load(void);

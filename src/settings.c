@@ -36,6 +36,8 @@ settings_load(void) {
             g_clear_error(&error);
             settings->use_path_style = FALSE;
         }
+        settings->logging_enabled = g_key_file_get_boolean(key_file, "Logging", "Enabled", NULL);
+        settings->log_level = g_key_file_get_integer(key_file, "Logging", "Level", NULL);
     } else {
         g_debug("Could not load settings file: %s", error->message);
     }
@@ -58,6 +60,9 @@ settings_save(MyS3Settings *settings) {
     g_key_file_set_string(key_file, "Connection", "Bucket", settings->bucket);
     g_key_file_set_boolean(key_file, "Connection", "UseSSL", settings->use_ssl);
     g_key_file_set_boolean(key_file, "Connection", "PathStyle", settings->use_path_style);
+
+    g_key_file_set_boolean(key_file, "Logging", "Enabled", settings->logging_enabled);
+    g_key_file_set_integer(key_file, "Logging", "Level", settings->log_level);
 
     if (!g_key_file_save_to_file(key_file, file_path, &error)) {
         g_warning("Failed to save settings: %s", error->message);
