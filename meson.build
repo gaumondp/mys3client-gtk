@@ -24,6 +24,8 @@ deps = [
 
 if host_machine.system() == 'darwin'
   deps += cc.find_library('Security', required : true)
+elif host_machine.system() == 'windows'
+  deps += cc.find_library('credui', required : true)
 endif
 
 executable('mys3-client',
