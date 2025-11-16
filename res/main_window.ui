@@ -55,6 +55,12 @@
                     <property name="icon-name">view-refresh-symbolic</property>
                   </object>
                 </child>
+                <child>
+                  <object class="GtkButton" id="find_button">
+                    <property name="label" translatable="yes">_Find...</property>
+                    <property name="icon-name">edit-find-symbolic</property>
+                  </object>
+                </child>
               </object>
             </child>
             <child type="end">

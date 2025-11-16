@@ -2,12 +2,6 @@
 
 This document outlines the remaining work required to complete the MyS3 Client application based on the original project specification.
 
-## Phase 4: Core File Operations (CRUD)
-
-## Phase 5: Embedded GtkSourceView Text Editor
-- [ ] **Find/Replace:** Add a basic find/replace dialog and functionality to the editor.
-- [ ] **Unsaved Changes:** Implement a confirmation dialog to warn the user about unsaved changes before closing an editor tab.
-
 ## Phase 6: Internationalization (i18n)
 - [ ] **Full Translation:** Complete the translation of all UI strings in the `.po` files for all specified languages (en, fr, de, es).
 - [ ] **Dynamic Language Switching:** Implement the logic to dynamically apply the selected language, ideally without requiring a full application restart.
