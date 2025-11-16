@@ -19,15 +19,16 @@ G_DEFINE_BOXED_TYPE(S3Object, s3_object, (GBoxedCopyFunc)s3_object_copy, (GBoxed
 
 enum { FOLDER_COL_NAME = 0, FOLDER_COL_IS_BUCKET, FOLDER_COL_FULL_PATH, NUM_FOLDER_COLS };
 
-typedef struct { GtkApplicationWindow *window; GtkTreeView *folder_tree_view; GtkTreeStore *folder_tree_store; GtkListView *file_list_view; GListStore *file_list_store; GtkNotebook *notebook; GtkStatusbar *statusbar; MyS3Settings *settings; gchar *access_key; gchar *secret_key; } MainWindow;
+typedef struct { GtkApplicationWindow *window; GtkTreeView *folder_tree_view; GtkTreeStore *folder_tree_store; GtkListView *file_list_view; GListStore *file_list_store; GtkNotebook *notebook; GtkStatusbar *statusbar; GtkButton *find_button; GtkWidget *find_dialog; GtkEntry *find_entry; GtkEntry *replace_entry; MyS3Settings *settings; gchar *access_key; gchar *secret_key; } MainWindow;
 typedef struct { GtkDialog *dialog; GtkEntry *endpoint_entry; GtkEntry *region_entry; GtkEntry *bucket_entry; GtkEntry *access_key_entry; GtkPasswordEntry *secret_key_entry; GtkCheckButton *path_style_check; GtkCheckButton *ssl_check; GtkLabel *connection_status_label; GtkButton *save_button; GtkButton *cancel_button; GtkButton *test_connection_button; gboolean connection_test_successful; } SettingsDialog;
 typedef struct { MainWindow *mw; gchar *current_bucket; } NewFolderDialogData;
 typedef struct { MainWindow *mw; S3Object *obj; GtkDialog *dialog; } DeleteConfirmationData;
 typedef struct { MainWindow *mw; S3Object *obj; GtkDialog *dialog; } RenameDialogData;
 typedef struct { MainWindow *mw; S3Object *obj; GtkFileChooserNative *dialog; } DownloadDialogData;
 typedef struct { GtkDialog *dialog; GtkProgressBar *progress_bar; GtkLabel *label; gboolean cancelled; } DownloadProgressData;
-typedef struct { gchar *key; GtkSourceView *source_view; MainWindow *mw; } EditorSaveData;
+typedef struct { gchar *key; GtkSourceView *source_view; MainWindow *mw; gboolean unsaved; GtkWidget *tab_label; } EditorSaveData;
 
+static void on_buffer_changed(GtkTextBuffer *buffer, gpointer user_data);
 static void open_settings_dialog(GtkWindow *parent);
 static void main_window_destroy(MainWindow *mw);
 static void on_folder_tree_row_activated(GtkTreeView *tree_view, GtkTreePath *path, GtkTreeViewColumn *column, gpointer user_data);
@@ -46,6 +47,9 @@ static void on_refresh_button_clicked(GtkButton *b, gpointer user_data);
 static void refresh_current_folder(MainWindow *mw);
 static void app_activate (GApplication *application);
 static void on_editor_save_button_clicked(GtkButton *button, gpointer user_data);
+static void on_find_button_clicked(GtkButton *button, gpointer user_data);
+static void on_close_button_clicked(GtkButton *button, gpointer user_data);
+static gboolean on_window_close_request(GtkApplicationWindow *window, gpointer user_data);
 static MainWindow* main_window_new(GtkApplication *app);
 static DownloadProgressData* download_progress_dialog_new(GtkWindow *parent, const gchar *title);
 static gboolean download_progress_callback(guint64 downloaded_bytes, guint64 total_bytes, gpointer user_data);
@@ -239,15 +243,33 @@ static void on_settings_button_clicked(GtkButton* b, gpointer d) { open_settings
 static void on_language_changed(GSimpleAction *action, GVariant *parameter, gpointer user_data) {
     const gchar *lang_code = g_variant_get_string(parameter, NULL);
     g_debug("Language changed to: %s", lang_code);
-    GtkWindow *parent_window = GTK_WINDOW(user_data);
-    GtkWidget *dialog = gtk_message_dialog_new(parent_window,
-                                               GTK_DIALOG_DESTROY_WITH_PARENT,
-                                               GTK_MESSAGE_INFO,
-                                               GTK_BUTTONS_OK,
-                                               _("Language Changed"),
-                                               _("The application must be restarted for the language change to take full effect."));
-    gtk_window_present(GTK_WINDOW(dialog));
-    g_signal_connect(dialog, "response", G_CALLBACK(gtk_window_destroy), NULL);
+    MainWindow *mw = (MainWindow *)user_data;
+
+    for (guint i = 1; i < gtk_notebook_get_n_pages(mw->notebook); ++i) {
+        GtkWidget *page = gtk_notebook_get_nth_page(mw->notebook, i);
+        GtkWidget *tab_box = gtk_notebook_get_tab_label(mw->notebook, page);
+        GtkWidget *tab_label = gtk_widget_get_first_child(tab_box);
+        const gchar *label_text = gtk_label_get_text(GTK_LABEL(tab_label));
+        if (g_str_has_suffix(label_text, "*")) {
+            GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(mw->window),
+                                                       GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+                                                       GTK_MESSAGE_QUESTION,
+                                                       GTK_BUTTONS_YES_NO,
+                                                       _("There are unsaved changes. Do you want to close anyway?"));
+            gint result;
+            g_signal_connect(dialog, "response", G_CALLBACK(gtk_window_destroy), &result);
+            gtk_window_present(GTK_WINDOW(dialog));
+            while(g_main_context_iteration(NULL, TRUE));
+            if (result == GTK_RESPONSE_NO || result == GTK_RESPONSE_DELETE_EVENT) {
+                return; // Prevent language change
+            }
+        }
+    }
+
+    // This is a simple way to apply the language change. A more robust
+    // implementation would save and restore the application state.
+    gtk_window_destroy(GTK_WINDOW(mw->window));
+    app_activate(G_APPLICATION(gtk_window_get_application(GTK_WINDOW(mw->window))));
 }
 
 static void setup_list_item_cb(GtkListItemFactory *f, GtkListItem *i) { (void)f; gtk_list_item_set_child(i, gtk_label_new(NULL)); }
@@ -477,18 +499,39 @@ static void open_editor_tab(MainWindow *mw, const gchar *key, const gchar *conte
 
     GtkWidget *tab_label = gtk_label_new(g_path_get_basename(key));
     GtkWidget *save_button = gtk_button_new_with_label(_("Save"));
+    GtkWidget *close_button = gtk_button_new_from_icon_name("window-close-symbolic");
     GtkWidget *tab_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
     gtk_box_append(GTK_BOX(tab_box), tab_label);
     gtk_box_append(GTK_BOX(tab_box), save_button);
+    gtk_box_append(GTK_BOX(tab_box), close_button);
+
+    gtk_widget_set_sensitive(GTK_WIDGET(mw->find_button), TRUE);
 
     EditorSaveData *save_data = g_new0(EditorSaveData, 1);
     save_data->key = g_strdup(key);
     save_data->source_view = GTK_SOURCE_VIEW(source_view);
     save_data->mw = mw;
+    save_data->unsaved = FALSE;
+    save_data->tab_label = tab_label;
     g_signal_connect(save_button, "clicked", G_CALLBACK(on_editor_save_button_clicked), save_data);
+    g_signal_connect(buffer, "changed", G_CALLBACK(on_buffer_changed), save_data);
+    g_signal_connect(close_button, "clicked", G_CALLBACK(on_close_button_clicked), save_data);
 
     gtk_notebook_append_page(GTK_NOTEBOOK(mw->notebook), scrolled_window, tab_box);
     gtk_notebook_set_current_page(GTK_NOTEBOOK(mw->notebook), gtk_notebook_get_n_pages(GTK_NOTEBOOK(mw->notebook)) - 1);
+}
+
+static void on_buffer_changed(GtkTextBuffer *buffer, gpointer user_data) {
+    (void)buffer;
+    EditorSaveData *data = (EditorSaveData *)user_data;
+    if (!data->unsaved) {
+        data->unsaved = TRUE;
+        gchar *current_label = g_strdup(gtk_label_get_text(GTK_LABEL(data->tab_label)));
+        gchar *new_label = g_strdup_printf("%s*", current_label);
+        gtk_label_set_text(GTK_LABEL(data->tab_label), new_label);
+        g_free(current_label);
+        g_free(new_label);
+    }
 }
 
 static void on_editor_save_button_clicked(GtkButton *button, gpointer user_data) {
@@ -510,6 +553,11 @@ static void on_editor_save_button_clicked(GtkButton *button, gpointer user_data)
         if (s3_client_upload_object(data->mw->settings->endpoint, data->mw->access_key, data->mw->secret_key, data->mw->settings->bucket, data->key, tmp_filename, data->mw->settings->use_ssl, &error)) {
             g_autofree gchar *msg = g_strdup_printf(_("'%s' saved successfully."), data->key);
             gtk_statusbar_push(data->mw->statusbar, 0, msg);
+            data->unsaved = FALSE;
+            gchar *current_label = g_strdup(gtk_label_get_text(GTK_LABEL(data->tab_label)));
+            current_label[strlen(current_label) - 1] = '\0';
+            gtk_label_set_text(GTK_LABEL(data->tab_label), current_label);
+            g_free(current_label);
         } else {
             g_autofree gchar *msg = g_strdup_printf(_("Failed to save '%s': %s"), data->key, error->message);
             gtk_statusbar_push(data->mw->statusbar, 0, msg);
@@ -519,6 +567,155 @@ static void on_editor_save_button_clicked(GtkButton *button, gpointer user_data)
 
     g_free(content);
     g_free(tmp_filename);
+}
+
+static void on_close_button_clicked(GtkButton *button, gpointer user_data) {
+    (void)button;
+    EditorSaveData *data = (EditorSaveData *)user_data;
+    gint page_num = gtk_notebook_page_num(data->mw->notebook, gtk_widget_get_parent(gtk_widget_get_parent(GTK_WIDGET(button))));
+
+    if (data->unsaved) {
+        GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(data->mw->window),
+                                                   GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+                                                   GTK_MESSAGE_QUESTION,
+                                                   GTK_BUTTONS_NONE,
+                                                   _("You have unsaved changes. Do you want to save them?"));
+        gtk_dialog_add_buttons(GTK_DIALOG(dialog),
+                               _("_Save"), GTK_RESPONSE_YES,
+                               _("_Don't Save"), GTK_RESPONSE_NO,
+                               _("_Cancel"), GTK_RESPONSE_CANCEL,
+                               NULL);
+
+        gint result;
+        g_signal_connect(dialog, "response", G_CALLBACK(gtk_window_destroy), &result);
+        gtk_window_present(GTK_WINDOW(dialog));
+        while(g_main_context_iteration(NULL, TRUE));
+
+        if (result == GTK_RESPONSE_YES) {
+            on_editor_save_button_clicked(NULL, data);
+        } else if (result == GTK_RESPONSE_CANCEL) {
+            return;
+        }
+    }
+
+    gtk_notebook_remove_page(data->mw->notebook, page_num);
+    if (gtk_notebook_get_n_pages(data->mw->notebook) == 1) {
+        gtk_widget_set_sensitive(GTK_WIDGET(data->mw->find_button), FALSE);
+    }
+    g_free(data->key);
+    g_free(data);
+}
+
+static void on_find_next_button_clicked(GtkButton *button, gpointer user_data) {
+    (void)button;
+    MainWindow *mw = (MainWindow *)user_data;
+    const gchar *search_text = gtk_editable_get_text(GTK_EDITABLE(mw->find_entry));
+    if (!search_text || !*search_text) {
+        return;
+    }
+
+    gint page_num = gtk_notebook_get_current_page(mw->notebook);
+    GtkWidget *scrolled_window = gtk_notebook_get_nth_page(mw->notebook, page_num);
+    GtkSourceView *source_view = GTK_SOURCE_VIEW(gtk_scrolled_window_get_child(GTK_SCROLLED_WINDOW(scrolled_window)));
+    GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(source_view));
+    GtkTextIter iter;
+    gtk_text_buffer_get_iter_at_mark(buffer, &iter, gtk_text_buffer_get_insert(buffer));
+
+    GtkTextIter start, end;
+    if (gtk_text_iter_forward_search(&iter, search_text, 0, &start, &end, NULL)) {
+        gtk_text_buffer_select_range(buffer, &start, &end);
+        gtk_text_view_scroll_to_iter(GTK_TEXT_VIEW(source_view), &start, 0.0, TRUE, 0.5, 0.5);
+    }
+}
+
+static void on_replace_button_clicked(GtkButton *button, gpointer user_data) {
+    (void)button;
+    MainWindow *mw = (MainWindow *)user_data;
+    const gchar *search_text = gtk_editable_get_text(GTK_EDITABLE(mw->find_entry));
+    const gchar *replace_text = gtk_editable_get_text(GTK_EDITABLE(mw->replace_entry));
+    if (!search_text || !*search_text) {
+        return;
+    }
+
+    gint page_num = gtk_notebook_get_current_page(mw->notebook);
+    GtkWidget *scrolled_window = gtk_notebook_get_nth_page(mw->notebook, page_num);
+    GtkSourceView *source_view = GTK_SOURCE_VIEW(gtk_scrolled_window_get_child(GTK_SCROLLED_WINDOW(scrolled_window)));
+    GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(source_view));
+    GtkTextIter start, end;
+    if (gtk_text_buffer_get_selection_bounds(buffer, &start, &end)) {
+        gtk_text_buffer_delete(buffer, &start, &end);
+        gtk_text_buffer_insert(buffer, &start, replace_text, -1);
+    }
+
+    on_find_next_button_clicked(NULL, mw);
+}
+
+static void on_replace_all_button_clicked(GtkButton *button, gpointer user_data) {
+    (void)button;
+    MainWindow *mw = (MainWindow *)user_data;
+    const gchar *search_text = gtk_editable_get_text(GTK_EDITABLE(mw->find_entry));
+    const gchar *replace_text = gtk_editable_get_text(GTK_EDITABLE(mw->replace_entry));
+    if (!search_text || !*search_text) {
+        return;
+    }
+
+    gint page_num = gtk_notebook_get_current_page(mw->notebook);
+    GtkWidget *scrolled_window = gtk_notebook_get_nth_page(mw->notebook, page_num);
+    GtkSourceView *source_view = GTK_SOURCE_VIEW(gtk_scrolled_window_get_child(GTK_SCROLLED_WINDOW(scrolled_window)));
+    GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(source_view));
+    GtkTextIter iter, start, end;
+    gtk_text_buffer_get_start_iter(buffer, &iter);
+
+    while (gtk_text_iter_forward_search(&iter, search_text, 0, &start, &end, NULL)) {
+        gtk_text_buffer_delete(buffer, &start, &end);
+        gtk_text_buffer_insert(buffer, &start, replace_text, -1);
+        gtk_text_buffer_get_iter_at_offset(buffer, &iter, gtk_text_iter_get_offset(&start) + strlen(replace_text));
+    }
+}
+
+static void on_find_button_clicked(GtkButton *button, gpointer user_data) {
+    (void)button;
+    MainWindow *mw = (MainWindow *)user_data;
+
+    if (mw->find_dialog) {
+        gtk_window_present(GTK_WINDOW(mw->find_dialog));
+        return;
+    }
+
+    GtkWidget *dialog = gtk_dialog_new_with_buttons(_("Find and Replace"),
+                                                    GTK_WINDOW(mw->window),
+                                                    GTK_DIALOG_DESTROY_WITH_PARENT,
+                                                    _("_Close"),
+                                                    GTK_RESPONSE_CLOSE,
+                                                    NULL);
+    mw->find_dialog = dialog;
+    g_signal_connect(dialog, "response", G_CALLBACK(gtk_window_destroy), NULL);
+
+    GtkWidget *content_area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+    GtkWidget *grid = gtk_grid_new();
+    gtk_grid_set_column_spacing(GTK_GRID(grid), 6);
+    gtk_grid_set_row_spacing(GTK_GRID(grid), 6);
+    gtk_box_append(GTK_BOX(content_area), grid);
+
+    mw->find_entry = GTK_ENTRY(gtk_entry_new());
+    mw->replace_entry = GTK_ENTRY(gtk_entry_new());
+    GtkWidget *find_next_button = gtk_button_new_with_label(_("Find Next"));
+    GtkWidget *replace_button = gtk_button_new_with_label(_("Replace"));
+    GtkWidget *replace_all_button = gtk_button_new_with_label(_("Replace All"));
+
+    gtk_grid_attach(GTK_GRID(grid), gtk_label_new(_("Find:")), 0, 0, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), GTK_WIDGET(mw->find_entry), 1, 0, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), find_next_button, 2, 0, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), gtk_label_new(_("Replace with:")), 0, 1, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), GTK_WIDGET(mw->replace_entry), 1, 1, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), replace_button, 2, 1, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), replace_all_button, 2, 2, 1, 1);
+
+    g_signal_connect(find_next_button, "clicked", G_CALLBACK(on_find_next_button_clicked), mw);
+    g_signal_connect(replace_button, "clicked", G_CALLBACK(on_replace_button_clicked), mw);
+    g_signal_connect(replace_all_button, "clicked", G_CALLBACK(on_replace_all_button_clicked), mw);
+
+    gtk_window_present(GTK_WINDOW(dialog));
 }
 
 static void on_file_list_row_activated(GtkListView *list_view, guint position, gpointer user_data) {
@@ -546,6 +743,8 @@ static MainWindow* main_window_new(GtkApplication *app) {
     mw->file_list_view = GTK_LIST_VIEW(gtk_builder_get_object(b, "file_list_view"));
     mw->notebook = GTK_NOTEBOOK(gtk_builder_get_object(b, "notebook"));
     mw->statusbar = GTK_STATUSBAR(gtk_builder_get_object(b, "statusbar"));
+    mw->find_button = GTK_BUTTON(gtk_builder_get_object(b, "find_button"));
+    gtk_widget_set_sensitive(GTK_WIDGET(mw->find_button), FALSE);
     mw->folder_tree_store = gtk_tree_store_new(NUM_FOLDER_COLS, G_TYPE_STRING, G_TYPE_BOOLEAN, G_TYPE_STRING);
     gtk_tree_view_set_model(mw->folder_tree_view, GTK_TREE_MODEL(mw->folder_tree_store));
     GtkCellRenderer *r = gtk_cell_renderer_text_new();
@@ -568,6 +767,12 @@ static MainWindow* main_window_new(GtkApplication *app) {
     g_signal_connect(GTK_BUTTON(gtk_builder_get_object(b, "delete_button")), "clicked", G_CALLBACK(on_delete_button_clicked), mw);
     g_signal_connect(GTK_BUTTON(gtk_builder_get_object(b, "download_button")), "clicked", G_CALLBACK(on_download_button_clicked), mw);
     g_signal_connect(GTK_BUTTON(gtk_builder_get_object(b, "refresh_button")), "clicked", G_CALLBACK(on_refresh_button_clicked), mw);
+    g_signal_connect(mw->find_button, "clicked", G_CALLBACK(on_find_button_clicked), mw);
+    g_signal_connect(mw->window, "close-request", G_CALLBACK(on_window_close_request), mw);
+
+    GSimpleAction *lang_action = g_simple_action_new_stateful("language", g_variant_type_new("s"), g_variant_new_string("en"));
+    g_signal_connect(lang_action, "activate", G_CALLBACK(on_language_changed), mw);
+    g_action_map_add_action(G_ACTION_MAP(app), G_ACTION(lang_action));
 
     GtkMenuButton *lang_button = GTK_MENU_BUTTON(gtk_builder_get_object(b, "language_button"));
     GMenu *lang_menu = g_menu_new();
@@ -581,6 +786,36 @@ static MainWindow* main_window_new(GtkApplication *app) {
     g_object_unref(b);
     return mw;
 }
+
+static gboolean on_window_close_request(GtkApplicationWindow *window, gpointer user_data) {
+    MainWindow *mw = (MainWindow *)user_data;
+    for (guint i = 1; i < gtk_notebook_get_n_pages(mw->notebook); ++i) {
+        GtkWidget *page = gtk_notebook_get_nth_page(mw->notebook, i);
+        // This is a bit of a hack, we should probably store the save_data in a list
+        // but for now we can just check if the tab label has an asterisk
+        GtkWidget *tab_box = gtk_notebook_get_tab_label(mw->notebook, page);
+        GtkWidget *tab_label = gtk_widget_get_first_child(tab_box);
+        const gchar *label_text = gtk_label_get_text(GTK_LABEL(tab_label));
+        if (g_str_has_suffix(label_text, "*")) {
+            GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(window),
+                                                       GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+                                                       GTK_MESSAGE_QUESTION,
+                                                       GTK_BUTTONS_YES_NO,
+                                                       _("There are unsaved changes. Do you want to close anyway?"));
+            gint result;
+            g_signal_connect(dialog, "response", G_CALLBACK(gtk_window_destroy), &result);
+            gtk_window_present(GTK_WINDOW(dialog));
+            while(g_main_context_iteration(NULL, TRUE));
+            if (result == GTK_RESPONSE_NO || result == GTK_RESPONSE_DELETE_EVENT) {
+                return TRUE; // Prevent window from closing
+            } else {
+                return FALSE; // Close the window
+            }
+        }
+    }
+    return FALSE; // No unsaved changes, close the window
+}
+
 
 static void main_window_destroy(MainWindow *mw) {}
 
@@ -604,10 +839,6 @@ int main (int argc, char *argv[]) {
     g_autoptr(GtkApplication) app = NULL; int status;
     s3_object_get_type();
     app = gtk_application_new ("com.example.mys3client", G_APPLICATION_DEFAULT_FLAGS);
-
-    GSimpleAction *lang_action = g_simple_action_new_stateful("language", g_variant_type_new("s"), g_variant_new_string("en"));
-    g_signal_connect(lang_action, "activate", G_CALLBACK(on_language_changed), NULL);
-    g_action_map_add_action(G_ACTION_MAP(app), G_ACTION(lang_action));
 
     g_signal_connect (app, "activate", G_CALLBACK(app_activate), NULL);
     status = g_application_run (G_APPLICATION (app), argc, argv);
