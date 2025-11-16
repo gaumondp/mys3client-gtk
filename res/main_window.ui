@@ -88,7 +88,7 @@
             <property name="position">250</property>
             <property name="wide-handle">true</property>
             <child>
-              <object class="GtkScrolledWindow">
+              <object class="GtkScrolledWindow" id="folder_tree_scrolled_window">
                 <property name="hscrollbar-policy">never</property>
                 <property name="child">
                   <object class="GtkTreeView" id="folder_tree_view"/>
