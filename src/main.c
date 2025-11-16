@@ -243,15 +243,33 @@ static void on_settings_button_clicked(GtkButton* b, gpointer d) { open_settings
 static void on_language_changed(GSimpleAction *action, GVariant *parameter, gpointer user_data) {
     const gchar *lang_code = g_variant_get_string(parameter, NULL);
     g_debug("Language changed to: %s", lang_code);
-    GtkWindow *parent_window = GTK_WINDOW(user_data);
-    GtkWidget *dialog = gtk_message_dialog_new(parent_window,
-                                               GTK_DIALOG_DESTROY_WITH_PARENT,
-                                               GTK_MESSAGE_INFO,
-                                               GTK_BUTTONS_OK,
-                                               _("Language Changed"),
-                                               _("The application must be restarted for the language change to take full effect."));
-    gtk_window_present(GTK_WINDOW(dialog));
-    g_signal_connect(dialog, "response", G_CALLBACK(gtk_window_destroy), NULL);
+    MainWindow *mw = (MainWindow *)user_data;
+
+    for (guint i = 1; i < gtk_notebook_get_n_pages(mw->notebook); ++i) {
+        GtkWidget *page = gtk_notebook_get_nth_page(mw->notebook, i);
+        GtkWidget *tab_box = gtk_notebook_get_tab_label(mw->notebook, page);
+        GtkWidget *tab_label = gtk_widget_get_first_child(tab_box);
+        const gchar *label_text = gtk_label_get_text(GTK_LABEL(tab_label));
+        if (g_str_has_suffix(label_text, "*")) {
+            GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(mw->window),
+                                                       GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+                                                       GTK_MESSAGE_QUESTION,
+                                                       GTK_BUTTONS_YES_NO,
+                                                       _("There are unsaved changes. Do you want to close anyway?"));
+            gint result;
+            g_signal_connect(dialog, "response", G_CALLBACK(gtk_window_destroy), &result);
+            gtk_window_present(GTK_WINDOW(dialog));
+            while(g_main_context_iteration(NULL, TRUE));
+            if (result == GTK_RESPONSE_NO || result == GTK_RESPONSE_DELETE_EVENT) {
+                return; // Prevent language change
+            }
+        }
+    }
+
+    // This is a simple way to apply the language change. A more robust
+    // implementation would save and restore the application state.
+    gtk_window_destroy(GTK_WINDOW(mw->window));
+    app_activate(G_APPLICATION(gtk_window_get_application(GTK_WINDOW(mw->window))));
 }
 
 static void setup_list_item_cb(GtkListItemFactory *f, GtkListItem *i) { (void)f; gtk_list_item_set_child(i, gtk_label_new(NULL)); }
@@ -752,6 +770,10 @@ static MainWindow* main_window_new(GtkApplication *app) {
     g_signal_connect(mw->find_button, "clicked", G_CALLBACK(on_find_button_clicked), mw);
     g_signal_connect(mw->window, "close-request", G_CALLBACK(on_window_close_request), mw);
 
+    GSimpleAction *lang_action = g_simple_action_new_stateful("language", g_variant_type_new("s"), g_variant_new_string("en"));
+    g_signal_connect(lang_action, "activate", G_CALLBACK(on_language_changed), mw);
+    g_action_map_add_action(G_ACTION_MAP(app), G_ACTION(lang_action));
+
     GtkMenuButton *lang_button = GTK_MENU_BUTTON(gtk_builder_get_object(b, "language_button"));
     GMenu *lang_menu = g_menu_new();
     g_menu_append(lang_menu, "English", "app.language::en");
@@ -817,10 +839,6 @@ int main (int argc, char *argv[]) {
     g_autoptr(GtkApplication) app = NULL; int status;
     s3_object_get_type();
     app = gtk_application_new ("com.example.mys3client", G_APPLICATION_DEFAULT_FLAGS);
-
-    GSimpleAction *lang_action = g_simple_action_new_stateful("language", g_variant_type_new("s"), g_variant_new_string("en"));
-    g_signal_connect(lang_action, "activate", G_CALLBACK(on_language_changed), NULL);
-    g_action_map_add_action(G_ACTION_MAP(app), G_ACTION(lang_action));
 
     g_signal_connect (app, "activate", G_CALLBACK(app_activate), NULL);
     status = g_application_run (G_APPLICATION (app), argc, argv);

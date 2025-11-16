@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: mys3-client\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-11-15 21:11+0000\n"
+"POT-Creation-Date: 2025-11-16 01:53+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,8 +17,207 @@ msgstr ""
 "Content-Type: text/plain; charset=CHARSET\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: src/main.c:96
+#: src/main.c:82
+#, c-format
+msgid "Refreshing %s..."
+msgstr ""
+
+#: src/main.c:89
+#, c-format
+msgid "Failed to refresh: %s"
+msgstr ""
+
+#: src/main.c:97
+msgid "Folder refreshed."
+msgstr ""
+
+#: src/main.c:103
+msgid "Please select a folder to refresh."
+msgstr ""
+
+#: src/main.c:140
+msgid "Create Folder"
+msgstr ""
+
+#: src/main.c:143
+msgid "_Create"
+msgstr ""
+
+#: src/main.c:145 src/main.c:273 src/main.c:297 src/main.c:414 src/main.c:568
+#: res/settings_dialog.ui:99
+msgid "_Cancel"
+msgstr ""
+
+#: src/main.c:150
+msgid "Folder Name"
+msgstr ""
+
+#: src/main.c:163
+msgid "Please select a bucket first."
+msgstr ""
+
+#: src/main.c:177
+msgid "Error: Credentials not found."
+msgstr ""
+
+#: src/main.c:181
+msgid "Listing buckets..."
+msgstr ""
+
+#: src/main.c:187
+#, c-format
+msgid "Failed to list buckets: %s"
+msgstr ""
+
+#: src/main.c:206
+msgid "Ready."
+msgstr ""
+
+#: src/main.c:219
+#, c-format
+msgid "Listing %s..."
+msgstr ""
+
+#: src/main.c:226
+#, c-format
+msgid "Failed: %s"
+msgstr ""
+
+#: src/main.c:234
+msgid "Objects loaded."
+msgstr ""
+
+#: src/main.c:251
+msgid "Language Changed"
+msgstr ""
+
+#: src/main.c:252
+msgid ""
+"The application must be restarted for the language change to take full "
+"effect."
+msgstr ""
+
+#: src/main.c:269
+msgid "Upload File"
+msgstr ""
+
+#: src/main.c:272
+msgid "_Open"
+msgstr ""
+
+#: src/main.c:292
+msgid "Rename Object"
+msgstr ""
+
+#: src/main.c:295 res/main_window.ui:42
+msgid "_Rename"
+msgstr ""
+
+#: src/main.c:314
+msgid "Please select a file to rename."
+msgstr ""
+
+#: src/main.c:329
+#, c-format
+msgid "'%s' renamed to '%s' successfully."
+msgstr ""
+
+#: src/main.c:333
+#, c-format
+msgid "Failed to rename '%s': %s"
+msgstr ""
+
+#: src/main.c:354
+#, c-format
+msgid "Are you sure you want to delete '%s'?"
+msgstr ""
+
+#: src/main.c:360
+msgid "Confirm Deletion"
+msgstr ""
+
+#: src/main.c:374
+msgid "Please select a file to delete."
+msgstr ""
+
+#: src/main.c:385
+#, c-format
+msgid "'%s' deleted successfully."
+msgstr ""
+
+#: src/main.c:389
+#, c-format
+msgid "Failed to delete '%s': %s"
+msgstr ""
+
+#: src/main.c:410
+msgid "Save File"
+msgstr ""
+
+#: src/main.c:413 src/main.c:566 res/settings_dialog.ui:104
+msgid "_Save"
+msgstr ""
+
+#: src/main.c:427
+msgid "Please select a file to download."
+msgstr ""
+
+#: src/main.c:483
+msgid "Save"
+msgstr ""
+
+#: src/main.c:536
+#, c-format
+msgid "'%s' saved successfully."
+msgstr ""
+
+#: src/main.c:544
+#, c-format
+msgid "Failed to save '%s': %s"
+msgstr ""
+
+#: src/main.c:564
+msgid "You have unsaved changes. Do you want to save them?"
+msgstr ""
+
+#: src/main.c:567
+msgid "_Don't Save"
+msgstr ""
+
+#: src/main.c:667
+msgid "Find and Replace"
+msgstr ""
+
+#: src/main.c:670
+msgid "_Close"
+msgstr ""
+
+#: src/main.c:684
+msgid "Find Next"
+msgstr ""
+
+#: src/main.c:685
+msgid "Replace"
+msgstr ""
+
+#: src/main.c:686
+msgid "Replace All"
+msgstr ""
+
+#: src/main.c:688
+msgid "Find:"
+msgstr ""
+
+#: src/main.c:691
+msgid "Replace with:"
+msgstr ""
+
+#: src/main.c:733
 msgid "Buckets"
+msgstr ""
+
+#: src/main.c:782
+msgid "There are unsaved changes. Do you want to close anyway?"
 msgstr ""
 
 #: res/main_window.ui:5
@@ -41,11 +240,27 @@ msgstr ""
 msgid "_Download"
 msgstr ""
 
-#: res/main_window.ui:47
+#: res/main_window.ui:48
+msgid "_Delete"
+msgstr ""
+
+#: res/main_window.ui:54
+msgid "_Refresh"
+msgstr ""
+
+#: res/main_window.ui:60
+msgid "_Find..."
+msgstr ""
+
+#: res/main_window.ui:71
 msgid "_Settings"
 msgstr ""
 
-#: res/main_window.ui:79
+#: res/main_window.ui:78
+msgid "Language"
+msgstr ""
+
+#: res/main_window.ui:109
 msgid "Files"
 msgstr ""
 
@@ -83,12 +298,4 @@ msgstr ""
 
 #: res/settings_dialog.ui:87
 msgid "_Test Connection"
-msgstr ""
-
-#: res/settings_dialog.ui:99
-msgid "_Cancel"
-msgstr ""
-
-#: res/settings_dialog.ui:104
-msgid "_Save"
 msgstr ""
