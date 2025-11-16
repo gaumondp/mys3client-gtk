@@ -4,34 +4,7 @@ This document outlines the remaining work required to complete the MyS3 Client a
 
 ## Phase 4: Core File Operations (CRUD)
 
-## Phase 5: Embedded Scintilla Text Editor
-- [ ] **Build Fix:** Resolve the `SciLexer.h` not found build error by correctly cloning the Scintilla repository and configuring the include path in `meson.build`.
-
-**AI Developer Notes:**
-
-I encountered a significant roadblock while trying to build the project to verify the Phase 4 changes. The Scintilla library is failing to build with GTK4. Here is a summary of the approaches I've tried:
-
-*   **Manual Build with Makefile:**
-    *   Extracted the `scintilla558.tgz` archive.
-    *   Modified `scintilla/gtk/makefile` to use `GTK_VERSION = gtk-4`.
-    *   Manually added GTK4 cflags and libs to the makefile.
-    *   The build failed with a "gdk/gdkwayland.h: No such file or directory" error, even after installing `libwayland-dev` and adding the include path to the makefile.
-
-*   **Meson Subproject:**
-    *   Created a `meson.build` file in the `scintilla` directory.
-    *   Modified the root `meson.build` to use Scintilla as a subproject.
-    *   The build failed because the subproject could not find the GTK4 dependency.
-    *   Attempted to pass the GTK4 dependency to the subproject, but this also failed.
-
-*   **Meson Wrap File:**
-    *   Created a `scintilla.wrap` file to have Meson download and build Scintilla automatically.
-    *   The build timed out, likely due to the long download and build time.
-
-*   **Simplified Meson Subproject:**
-    *   Created a simplified `meson.build` file in the `scintilla` directory, only including the necessary source files.
-    *   This also failed due to the GTK4 dependency issue.
-
-The next agent should focus on resolving this Scintilla build issue before proceeding with the rest of the tasks. It may be necessary to find a different version of Scintilla or to use a different build approach.
+## Phase 5: Embedded GtkSourceView Text Editor
 - [ ] **Save Functionality:** Implement saving changes from the editor back to S3 (S3 PUT Object).
 - [ ] **Find/Replace:** Add a basic find/replace dialog and functionality to the editor.
 - [ ] **Unsaved Changes:** Implement a confirmation dialog to warn the user about unsaved changes before closing an editor tab.

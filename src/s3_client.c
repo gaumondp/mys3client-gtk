@@ -242,6 +242,18 @@ s3_client_create_folder(const gchar *endpoint, const gchar *access_key, const gc
     return TRUE;
 }
 
+gboolean
+s3_client_rename_object(const gchar *endpoint, const gchar *access_key, const gchar *secret_key, const gchar *bucket, const gchar *old_key, const gchar *new_key, gboolean use_ssl, GError **error) {
+    // Stub
+    return TRUE;
+}
+
+gboolean
+s3_client_delete_object(const gchar *endpoint, const gchar *access_key, const gchar *secret_key, const gchar *bucket, const gchar *key, gboolean use_ssl, GError **error) {
+    // Stub
+    return TRUE;
+}
+
 // #############################################################################
 // # Download Object
 // #############################################################################

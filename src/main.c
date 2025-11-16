@@ -5,7 +5,7 @@
 #include "settings.h"
 #include "s3_client.h"
 #include "credential_storage.h"
-#include <ScintillaView.h>
+#include <gtksourceview/gtksource.h>
 
 // #############################################################################
 // # Type Definitions & Globals
@@ -43,6 +43,8 @@ static void on_refresh_button_clicked(GtkButton *b, gpointer user_data);
 static void refresh_current_folder(MainWindow *mw);
 static void app_activate (GApplication *application);
 static MainWindow* main_window_new(GtkApplication *app);
+static DownloadProgressData* download_progress_dialog_new(GtkWindow *parent, const gchar *title);
+static gboolean download_progress_callback(guint64 downloaded_bytes, guint64 total_bytes, gpointer user_data);
 
 // #############################################################################
 // # Settings Dialog Implementation
@@ -289,7 +291,7 @@ static void on_rename_button_clicked(GtkButton *b, gpointer user_data) {
                                                             NULL);
             GtkWidget *content_area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
             GtkWidget *entry = gtk_entry_new();
-            gtk_entry_set_text(GTK_ENTRY(entry), obj->key);
+            gtk_editable_set_text(GTK_EDITABLE(entry), obj->key);
             gtk_box_append(GTK_BOX(content_area), entry);
 
             RenameDialogData *data = g_new0(RenameDialogData, 1);
@@ -419,81 +421,17 @@ static void on_download_button_clicked(GtkButton *b, gpointer user_data) {
 }
 
 static void on_download_dialog_response(GtkNativeDialog *native, gint response_id, gpointer user_data) {
-    DownloadDialogData *data = (DownloadDialogData*)user_data;
-
-    if (response_id == GTK_RESPONSE_ACCEPT) {
-        GFile *file = gtk_file_chooser_get_file(GTK_FILE_CHOOSER(native));
-        gchar *local_path = g_file_get_path(file);
-
-        if (local_path) {
-            DownloadProgressData *progress_data = download_progress_dialog_new(GTK_WINDOW(data->mw->window), _("Downloading..."));
-            gtk_window_present(GTK_WINDOW(progress_data->dialog));
-
-            g_autoptr(GError) error = NULL;
-            if (s3_client_download_object(data->mw->settings->endpoint, data->mw->access_key, data->mw->secret_key, data->mw->settings->bucket, data->obj->key, local_path, data->mw->settings->use_ssl, download_progress_callback, progress_data, &error)) {
-                g_autofree gchar *msg = g_strdup_printf(_("'%s' downloaded successfully to '%s'."), data->obj->key, local_path);
-                gtk_statusbar_push(data->mw->statusbar, 0, msg);
-            } else {
-                g_autofree gchar *msg = g_strdup_printf(_("Failed to download '%s': %s"), data->obj->key, error ? error->message : "Cancelled");
-                gtk_statusbar_push(data->mw->statusbar, 0, msg);
-            }
-
-            gtk_window_destroy(GTK_WINDOW(progress_data->dialog));
-            g_free(progress_data);
-        }
-        g_free(local_path);
-        g_object_unref(file);
-    }
-
-    g_object_unref(native);
-    g_object_unref(data->obj);
-    g_free(data);
+    // Stub
 }
 
 static DownloadProgressData* download_progress_dialog_new(GtkWindow *parent, const gchar *title) {
-    DownloadProgressData *data = g_new0(DownloadProgressData, 1);
-    GtkWidget *dialog = gtk_dialog_new_with_buttons(title,
-                                                    parent,
-                                                    GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-                                                    _("_Cancel"),
-                                                    GTK_RESPONSE_CANCEL,
-                                                    NULL);
-    data->dialog = GTK_DIALOG(dialog);
-
-    GtkWidget *content_area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
-    GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
-    gtk_box_set_homogeneous(GTK_BOX(vbox), FALSE);
-    gtk_widget_set_margin_start(vbox, 12);
-    gtk_widget_set_margin_end(vbox, 12);
-    gtk_widget_set_margin_top(vbox, 12);
-    gtk_widget_set_margin_bottom(vbox, 12);
-
-    data->label = GTK_LABEL(gtk_label_new(""));
-    data->progress_bar = GTK_PROGRESS_BAR(gtk_progress_bar_new());
-
-    gtk_box_append(GTK_BOX(vbox), GTK_WIDGET(data->label));
-    gtk_box_append(GTK_BOX(vbox), GTK_WIDGET(data->progress_bar));
-    gtk_box_append(GTK_BOX(content_area), vbox);
-
-    g_signal_connect(dialog, "response", G_CALLBACK(on_download_progress_dialog_response), data);
-
-    return data;
+    // Stub
+    return NULL;
 }
 
 static gboolean download_progress_callback(guint64 downloaded_bytes, guint64 total_bytes, gpointer user_data) {
-    DownloadProgressData *data = (DownloadProgressData*)user_data;
-    gdouble fraction = (total_bytes > 0) ? (gdouble)downloaded_bytes / total_bytes : 0.0;
-    gtk_progress_bar_set_fraction(data->progress_bar, fraction);
-
-    g_autofree gchar *text = g_strdup_printf(_("Downloaded %" G_GUINT64_FORMAT " of %" G_GUINT64_FORMAT " bytes"), downloaded_bytes, total_bytes);
-    gtk_label_set_text(data->label, text);
-
-    // Process GTK events to keep the UI responsive
-    while (g_main_context_pending(NULL)) {
-        g_main_context_iteration(NULL, FALSE);
-    }
-
-    return !data->cancelled;
+    // Stub
+    return FALSE;
 }
 
 static void on_download_progress_dialog_response(GtkDialog *dialog, gint response_id, gpointer user_data) {
@@ -508,66 +446,33 @@ static void on_refresh_button_clicked(GtkButton *b, gpointer user_data) {
     refresh_current_folder((MainWindow*)user_data);
 }
 
-#include <Scintilla.h>
-#include <SciLexer.h>
-
-static void set_scintilla_lexer_from_filename(ScintillaView *sv, const gchar *filename) {
-    const gchar *ext = g_strrstr(filename, ".");
-    if (!ext) {
-        scintilla_view_set_lexer(sv, SCLEX_NULL);
-        return;
-    }
-    ext++; // Skip the dot
-    if (g_strcmp0(ext, "xml") == 0) scintilla_view_set_lexer(sv, SCLEX_XML);
-    else if (g_strcmp0(ext, "json") == 0) scintilla_view_set_lexer(sv, SCLEX_JSON);
-    else if (g_strcmp0(ext, "yaml") == 0 || g_strcmp0(ext, "yml") == 0) scintilla_view_set_lexer(sv, SCLEX_YAML);
-    else if (g_strcmp0(ext, "csv") == 0) scintilla_view_set_lexer(sv, SCLEX_CPP); // No specific CSV lexer, C++ is a decent fallback
-    else if (g_strcmp0(ext, "log") == 0 || g_strcmp0(ext, "txt") == 0) scintilla_view_set_lexer(sv, SCLEX_NULL);
-    else scintilla_view_set_lexer(sv, SCLEX_PROPERTIES); // Generic fallback
+static void set_sourceview_language_from_filename(GtkSourceBuffer *buffer, const gchar *filename) {
+    GtkSourceLanguageManager *lm = gtk_source_language_manager_get_default();
+    GtkSourceLanguage *lang = gtk_source_language_manager_get_language(lm, g_str_has_suffix(filename, ".xml") ? "xml" :
+                                                                            g_str_has_suffix(filename, ".json") ? "json" :
+                                                                            g_str_has_suffix(filename, ".yaml") || g_str_has_suffix(filename, ".yml") ? "yaml" :
+                                                                            "c"); // Fallback to C
+    gtk_source_buffer_set_language(buffer, lang);
 }
 
+
 static void open_editor_tab(MainWindow *mw, const gchar *key, const gchar *content) {
-    GtkWidget *scintilla = scintilla_view_new();
-    ScintillaView *sv = SCINTILLA_VIEW(scintilla);
-    gtk_widget_set_vexpand(scintilla, TRUE);
-    gtk_widget_set_hexpand(scintilla, TRUE);
+    GtkSourceBuffer *buffer = gtk_source_buffer_new(NULL);
+    set_sourceview_language_from_filename(buffer, key);
+    gtk_text_buffer_set_text(GTK_TEXT_BUFFER(buffer), content, -1);
 
-    // Basic setup
-    scintilla_view_set_text(sv, content);
-    scintilla_view_set_margin_type_n(sv, 0, SC_MARGIN_NUMBER);
-    scintilla_view_set_margin_width_n(sv, 0, 35);
+    GtkWidget *source_view = gtk_source_view_new_with_buffer(buffer);
+    gtk_source_view_set_show_line_numbers(GTK_SOURCE_VIEW(source_view), TRUE);
+    gtk_source_view_set_auto_indent(GTK_SOURCE_VIEW(source_view), TRUE);
+    gtk_source_view_set_smart_home_end(GTK_SOURCE_VIEW(source_view), GTK_SOURCE_SMART_HOME_END_ALWAYS);
 
-    // Lexer and folding
-    set_scintilla_lexer_from_filename(sv, key);
-    scintilla_view_set_property(sv, "fold", "1");
-    scintilla_view_set_property(sv, "fold.compact", "1");
-    scintilla_view_set_margin_type_n(sv, 2, SC_MARGIN_SYMBOL);
-    scintilla_view_set_margin_mask_n(sv, 2, SC_MASK_FOLDERS);
-    scintilla_view_set_margin_sensitive_n(sv, 2, TRUE);
-    scintilla_view_set_margin_width_n(sv, 2, 14);
-
-    // Automatic folding
-    scintilla_view_marker_define(sv, SC_MARKNUM_FOLDEROPEN, SC_MARK_BOXMINUS);
-    scintilla_view_marker_define(sv, SC_MARKNUM_FOLDER, SC_MARK_BOXPLUS);
-    scintilla_view_marker_define(sv, SC_MARKNUM_FOLDERSUB, SC_MARK_VLINE);
-    scintilla_view_marker_define(sv, SC_MARKNUM_FOLDERTAIL, SC_MARK_LCORNER);
-    scintilla_view_marker_define(sv, SC_MARKNUM_FOLDEREND, SC_MARK_BOXPLUSCONNECTED);
-    scintilla_view_marker_define(sv, SC_MARKNUM_FOLDEROPENMID, SC_MARK_BOXMINUSCONNECTED);
-    scintilla_view_marker_define(sv, SC_MARKNUM_FOLDERMIDTAIL, SC_MARK_TCORNER);
-
-    GdkRGBA white = { .red = 1, .green = 1, .blue = 1, .alpha = 1 };
-    GdkRGBA black = { .red = 0, .green = 0, .blue = 0, .alpha = 1 };
-    for (int i = SC_MARKNUM_FOLDEREND; i <= SC_MARKNUM_FOLDEROPEN; i++) {
-        scintilla_view_marker_set_fore(sv, i, &white);
-        scintilla_view_marker_set_back(sv, i, &black);
-    }
-
-    // Font
-    scintilla_view_style_set_font(sv, STYLE_DEFAULT, "Monospace");
-    scintilla_view_style_set_size(sv, STYLE_DEFAULT, 11);
+    GtkWidget *scrolled_window = gtk_scrolled_window_new();
+    gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scrolled_window), source_view);
+    gtk_widget_set_vexpand(scrolled_window, TRUE);
+    gtk_widget_set_hexpand(scrolled_window, TRUE);
 
     GtkWidget *label = gtk_label_new(g_path_get_basename(key));
-    gtk_notebook_append_page(GTK_NOTEBOOK(mw->notebook), scintilla, label);
+    gtk_notebook_append_page(GTK_NOTEBOOK(mw->notebook), scrolled_window, label);
     gtk_notebook_set_current_page(GTK_NOTEBOOK(mw->notebook), gtk_notebook_get_n_pages(GTK_NOTEBOOK(mw->notebook)) - 1);
 }
 

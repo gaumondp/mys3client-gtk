@@ -1,6 +1,0 @@
-[wrap-git]
-url = https://github.com/ScintillaOrg/scintilla.git
-revision = head
-
-[provide]
-scintilla = scintilla_dep
