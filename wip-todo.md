@@ -2,8 +2,7 @@
 
 ## Step 7 Advanced Features & UX
 - [ ] **Drag and Drop:**
-  - [ ] Implement drag-and-drop from the OS to the file list for uploads.
-  - [ ] Implement drag-and-drop from the file list to the OS for downloads.
+  - [ ] Implement drag-and-drop from the OS to the file list for uploads only.
 
 ## Step 8
 - [ ] **Credential Storage (Platform-Specific):**
