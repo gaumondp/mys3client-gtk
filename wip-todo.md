@@ -5,7 +5,6 @@ This document outlines the remaining work required to complete the MyS3 Client a
 ## Phase 4: Core File Operations (CRUD)
 
 ## Phase 5: Embedded GtkSourceView Text Editor
-- [ ] **Save Functionality:** Implement saving changes from the editor back to S3 (S3 PUT Object).
 - [ ] **Find/Replace:** Add a basic find/replace dialog and functionality to the editor.
 - [ ] **Unsaved Changes:** Implement a confirmation dialog to warn the user about unsaved changes before closing an editor tab.
 

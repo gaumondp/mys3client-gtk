@@ -9,6 +9,25 @@
 // #############################################################################
 
 typedef struct {
+    FILE *file;
+    S3Status status;
+    GError *error;
+} UploadObjectContext;
+
+static int upload_data_callback(int bufferSize, char *buffer, void *callback_data) {
+    UploadObjectContext *context = (UploadObjectContext *)callback_data;
+    return fread(buffer, 1, bufferSize, context->file);
+}
+
+static void response_complete_callback_upload(S3Status status, const S3ErrorDetails *error_details, void *callback_data) {
+    UploadObjectContext *context = (UploadObjectContext *)callback_data;
+    context->status = status;
+    if (status != S3StatusOK && error_details && error_details->message) {
+        g_set_error(&context->error, g_quark_from_static_string("S3Client"), status, "S3 Error: %s", error_details->message);
+    }
+}
+
+typedef struct {
     S3Status status;
     GError *error;
 } TestConnectionContext;
@@ -423,28 +442,6 @@ s3_client_download_object_to_buffer(const gchar *endpoint, const gchar *access_k
 // #############################################################################
 // # Upload Object
 // #############################################################################
-
-typedef struct {
-    FILE *file;
-    S3Status status;
-    GError *error;
-} UploadObjectContext;
-
-
-static int
-upload_data_callback(int bufferSize, char *buffer, void *callback_data) {
-    UploadObjectContext *context = (UploadObjectContext *)callback_data;
-    return fread(buffer, 1, bufferSize, context->file);
-}
-
-static void
-response_complete_callback_upload(S3Status status, const S3ErrorDetails *error_details, void *callback_data) {
-    UploadObjectContext *context = (UploadObjectContext *)callback_data;
-    context->status = status;
-    if (status != S3StatusOK && error_details && error_details->message) {
-        g_set_error(&context->error, g_quark_from_static_string("S3Client"), status, "S3 Error: %s", error_details->message);
-    }
-}
 
 gboolean
 s3_client_upload_object(const gchar *endpoint, const gchar *access_key, const gchar *secret_key, const gchar *bucket, const gchar *key, const gchar *local_file_path, gboolean use_ssl, GError **error) {

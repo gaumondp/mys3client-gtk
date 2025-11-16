@@ -2,6 +2,8 @@
 #include <errno.h>
 #include <glib/gi18n.h>
 #include <locale.h>
+#include <unistd.h>
+#include <string.h>
 #include "settings.h"
 #include "s3_client.h"
 #include "credential_storage.h"
@@ -24,6 +26,7 @@ typedef struct { MainWindow *mw; S3Object *obj; GtkDialog *dialog; } DeleteConfi
 typedef struct { MainWindow *mw; S3Object *obj; GtkDialog *dialog; } RenameDialogData;
 typedef struct { MainWindow *mw; S3Object *obj; GtkFileChooserNative *dialog; } DownloadDialogData;
 typedef struct { GtkDialog *dialog; GtkProgressBar *progress_bar; GtkLabel *label; gboolean cancelled; } DownloadProgressData;
+typedef struct { gchar *key; GtkSourceView *source_view; MainWindow *mw; } EditorSaveData;
 
 static void open_settings_dialog(GtkWindow *parent);
 static void main_window_destroy(MainWindow *mw);
@@ -42,6 +45,7 @@ static void on_download_progress_dialog_response(GtkDialog *dialog, gint respons
 static void on_refresh_button_clicked(GtkButton *b, gpointer user_data);
 static void refresh_current_folder(MainWindow *mw);
 static void app_activate (GApplication *application);
+static void on_editor_save_button_clicked(GtkButton *button, gpointer user_data);
 static MainWindow* main_window_new(GtkApplication *app);
 static DownloadProgressData* download_progress_dialog_new(GtkWindow *parent, const gchar *title);
 static gboolean download_progress_callback(guint64 downloaded_bytes, guint64 total_bytes, gpointer user_data);
@@ -471,9 +475,50 @@ static void open_editor_tab(MainWindow *mw, const gchar *key, const gchar *conte
     gtk_widget_set_vexpand(scrolled_window, TRUE);
     gtk_widget_set_hexpand(scrolled_window, TRUE);
 
-    GtkWidget *label = gtk_label_new(g_path_get_basename(key));
-    gtk_notebook_append_page(GTK_NOTEBOOK(mw->notebook), scrolled_window, label);
+    GtkWidget *tab_label = gtk_label_new(g_path_get_basename(key));
+    GtkWidget *save_button = gtk_button_new_with_label(_("Save"));
+    GtkWidget *tab_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+    gtk_box_append(GTK_BOX(tab_box), tab_label);
+    gtk_box_append(GTK_BOX(tab_box), save_button);
+
+    EditorSaveData *save_data = g_new0(EditorSaveData, 1);
+    save_data->key = g_strdup(key);
+    save_data->source_view = GTK_SOURCE_VIEW(source_view);
+    save_data->mw = mw;
+    g_signal_connect(save_button, "clicked", G_CALLBACK(on_editor_save_button_clicked), save_data);
+
+    gtk_notebook_append_page(GTK_NOTEBOOK(mw->notebook), scrolled_window, tab_box);
     gtk_notebook_set_current_page(GTK_NOTEBOOK(mw->notebook), gtk_notebook_get_n_pages(GTK_NOTEBOOK(mw->notebook)) - 1);
+}
+
+static void on_editor_save_button_clicked(GtkButton *button, gpointer user_data) {
+    (void)button;
+    EditorSaveData *data = (EditorSaveData *)user_data;
+
+    GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(data->source_view));
+    GtkTextIter start, end;
+    gtk_text_buffer_get_bounds(buffer, &start, &end);
+    gchar *content = gtk_text_buffer_get_text(buffer, &start, &end, FALSE);
+
+    gchar *tmp_filename = NULL;
+    int fd = g_file_open_tmp("mys3client-XXXXXX", &tmp_filename, NULL);
+    if (fd != -1) {
+        write(fd, content, strlen(content));
+        close(fd);
+
+        g_autoptr(GError) error = NULL;
+        if (s3_client_upload_object(data->mw->settings->endpoint, data->mw->access_key, data->mw->secret_key, data->mw->settings->bucket, data->key, tmp_filename, data->mw->settings->use_ssl, &error)) {
+            g_autofree gchar *msg = g_strdup_printf(_("'%s' saved successfully."), data->key);
+            gtk_statusbar_push(data->mw->statusbar, 0, msg);
+        } else {
+            g_autofree gchar *msg = g_strdup_printf(_("Failed to save '%s': %s"), data->key, error->message);
+            gtk_statusbar_push(data->mw->statusbar, 0, msg);
+        }
+        g_unlink(tmp_filename);
+    }
+
+    g_free(content);
+    g_free(tmp_filename);
 }
 
 static void on_file_list_row_activated(GtkListView *list_view, guint position, gpointer user_data) {
