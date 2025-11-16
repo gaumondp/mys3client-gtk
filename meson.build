@@ -14,11 +14,6 @@ compiled_resources = gnome.compile_resources('resources',
 # Manually find libs3
 libs3_dep = cc.find_library('s3', dirs: ['/usr/lib'])
 
-# Manually find our custom-built Scintilla
-scintilla_dep = cc.find_library('scintilla', dirs: ['/tmp/scintilla_build/bin'])
-scintilla_inc = include_directories('/tmp/scintilla_build/gtk4', '/tmp/scintilla_build/include')
-
-
 executable('mys3-client',
   'src/main.c',
   'src/settings.c',
@@ -27,11 +22,10 @@ executable('mys3-client',
   compiled_resources,
   dependencies : [
     dependency('gtk4'),
+    dependency('gtksourceview-5'),
     dependency('glib-2.0'),
-    libs3_dep,
-    scintilla_dep
+    libs3_dep
   ],
-  include_directories: [include_directories('/usr/include'), scintilla_inc],
   install : true)
 
 # Internationalization

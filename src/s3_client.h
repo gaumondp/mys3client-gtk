@@ -70,6 +70,10 @@ gchar* s3_client_download_object_to_buffer(const gchar *endpoint,
                                            gsize *length,
                                            GError **error);
 
+typedef gboolean (*S3DownloadProgressCallback)(guint64 downloaded_bytes,
+                                             guint64 total_bytes,
+                                             gpointer user_data);
+
 gboolean s3_client_download_object(const gchar *endpoint,
                                    const gchar *access_key,
                                    const gchar *secret_key,
@@ -81,9 +85,8 @@ gboolean s3_client_download_object(const gchar *endpoint,
                                    gpointer progress_user_data,
                                    GError **error);
 
-typedef gboolean (*S3DownloadProgressCallback)(guint64 downloaded_bytes,
-                                             guint64 total_bytes,
-                                             gpointer user_data);
+gboolean s3_client_rename_object(const gchar *endpoint, const gchar *access_key, const gchar *secret_key, const gchar *bucket, const gchar *old_key, const gchar *new_key, gboolean use_ssl, GError **error);
+gboolean s3_client_delete_object(const gchar *endpoint, const gchar *access_key, const gchar *secret_key, const gchar *bucket, const gchar *key, gboolean use_ssl, GError **error);
 
 void s3_client_free_object_list(GList *object_list);
 void s3_client_free_bucket_list(GList *bucket_list);
