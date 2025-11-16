@@ -97,6 +97,7 @@ response_complete_callback_list_buckets(S3Status status, const S3ErrorDetails *e
 
 GList*
 s3_client_list_buckets(const gchar *endpoint, const gchar *access_key, const gchar *secret_key, gboolean use_ssl, GError **error) {
+    g_debug("Listing buckets for endpoint: %s", endpoint);
     ListBucketsContext context = { NULL, S3StatusInternalError, NULL };
     S3ListServiceHandler handler = {
         { NULL, &response_complete_callback_list_buckets },
@@ -105,6 +106,7 @@ s3_client_list_buckets(const gchar *endpoint, const gchar *access_key, const gch
     S3Protocol protocol = use_ssl ? S3ProtocolHTTPS : S3ProtocolHTTP;
 
     if (S3_initialize("s3", S3_INIT_ALL, NULL) != S3StatusOK) {
+        g_critical("Failed to initialize libs3.");
         g_set_error(error, g_quark_from_static_string("S3Client"), 0, "Failed to initialize libs3");
         return NULL;
     }
@@ -158,6 +160,7 @@ response_complete_callback_list_objects(S3Status status, const S3ErrorDetails *e
 
 GList*
 s3_client_list_objects(const gchar *endpoint, const gchar *access_key, const gchar *secret_key, const gchar *bucket, const gchar *prefix, gboolean use_ssl, GError **error) {
+    g_debug("Listing objects in bucket '%s' with prefix '%s'", bucket, prefix ? prefix : "");
     ListObjectsContext context = { NULL, S3StatusInternalError, NULL };
     S3ListBucketHandler handler = {
         { NULL, &response_complete_callback_list_objects },
@@ -174,6 +177,7 @@ s3_client_list_objects(const gchar *endpoint, const gchar *access_key, const gch
     };
 
     if (S3_initialize("s3", S3_INIT_ALL, NULL) != S3StatusOK) {
+        g_critical("Failed to initialize libs3.");
         g_set_error(error, g_quark_from_static_string("S3Client"), 0, "Failed to initialize libs3");
         return NULL;
     }
@@ -224,6 +228,7 @@ response_complete_callback_create_folder(S3Status status, const S3ErrorDetails *
 
 gboolean
 s3_client_create_folder(const gchar *endpoint, const gchar *access_key, const gchar *secret_key, const gchar *bucket, const gchar *folder_path, gboolean use_ssl, GError **error) {
+    g_debug("Creating folder '%s' in bucket '%s'", folder_path, bucket);
     CreateFolderContext context = { S3StatusInternalError, NULL };
     S3PutObjectHandler handler = {
         { NULL, &response_complete_callback_create_folder },
@@ -240,6 +245,7 @@ s3_client_create_folder(const gchar *endpoint, const gchar *access_key, const gc
     };
 
     if (S3_initialize("s3", S3_INIT_ALL, NULL) != S3StatusOK) {
+        g_critical("Failed to initialize libs3.");
         g_set_error(error, g_quark_from_static_string("S3Client"), 0, "Failed to initialize libs3");
         return FALSE;
     }
@@ -326,9 +332,11 @@ response_complete_callback_download_object(S3Status status, const S3ErrorDetails
 
 gboolean
 s3_client_download_object(const gchar *endpoint, const gchar *access_key, const gchar *secret_key, const gchar *bucket, const gchar *key, const gchar *local_file_path, gboolean use_ssl, S3DownloadProgressCallback progress_callback, gpointer progress_user_data, GError **error) {
+    g_debug("Downloading object '%s' from bucket '%s' to '%s'", key, bucket, local_file_path);
 
     FILE *file = fopen(local_file_path, "w");
     if (!file) {
+        g_warning("Failed to open local file '%s' for writing: %s", local_file_path, g_strerror(errno));
         g_set_error(error, G_FILE_ERROR, g_file_error_from_errno(errno), "Failed to open file '%s'", local_file_path);
         return FALSE;
     }
@@ -445,9 +453,11 @@ s3_client_download_object_to_buffer(const gchar *endpoint, const gchar *access_k
 
 gboolean
 s3_client_upload_object(const gchar *endpoint, const gchar *access_key, const gchar *secret_key, const gchar *bucket, const gchar *key, const gchar *local_file_path, gboolean use_ssl, GError **error) {
+    g_debug("Uploading object '%s' to bucket '%s' from '%s'", key, bucket, local_file_path);
 
     FILE *file = fopen(local_file_path, "r");
     if (!file) {
+        g_warning("Failed to open local file '%s' for reading: %s", local_file_path, g_strerror(errno));
         g_set_error(error, G_FILE_ERROR, g_file_error_from_errno(errno), "Failed to open file '%s'", local_file_path);
         return FALSE;
     }

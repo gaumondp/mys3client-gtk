@@ -50,6 +50,11 @@ meson setup builddir
 meson compile -C builddir
 ```
 
+To save a log of the build process, you can redirect the output of the compile command to a file:
+```bash
+meson compile -C builddir > build_log.txt 2>&1
+```
+
 ### Installation
 
 To install the application on your system, run the following command from the project root:
@@ -57,3 +62,13 @@ To install the application on your system, run the following command from the pr
 ```bash
 sudo meson install -C builddir
 ```
+
+## Logging
+
+The application generates runtime logs that can be useful for debugging. The log files are stored in the following locations:
+
+*   **macOS:** `~/Library/Logs/MyS3Client/`
+*   **Windows:** `%APPDATA%\\MyS3Client\\Logs\\`
+*   **Linux:** `~/.local/state/MyS3Client/logs/`
+
+Logging preferences can be configured in the application's settings dialog.

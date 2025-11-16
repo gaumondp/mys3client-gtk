@@ -13,7 +13,7 @@
 - [x] **GTK Deprecation Warnings:** Resolve all GTK deprecation warnings that occur during the build process.
 
 ## Step 10
-- [ ]  Add extensive logging as texte files for both compiling and for the apps running.
+- [x]  Add extensive logging as texte files for both compiling and for the apps running.
 
 ## Step 11 test
 - [ ] **Testing:** Perform comprehensive manual testing for all features on both Windows and macOS.
