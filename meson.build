@@ -2,6 +2,8 @@ project('mys3-client', 'c',
   version : '0.1.0',
   default_options : ['c_std=c17', 'warning_level=2'])
 
+add_project_arguments('-DG_LOG_USE_STRUCTURED', language : 'c')
+
 gnome = import('gnome')
 cc = meson.get_compiler('c')
 
@@ -24,6 +26,8 @@ deps = [
 
 if host_machine.system() == 'darwin'
   deps += cc.find_library('Security', required : true)
+elif host_machine.system() == 'windows'
+  deps += cc.find_library('credui', required : true)
 endif
 
 executable('mys3-client',
@@ -31,6 +35,7 @@ executable('mys3-client',
   'src/settings.c',
   'src/s3_client.c',
   'src/credential_storage.c',
+  'src/logging.c',
   compiled_resources,
   dependencies : deps,
   install : true)
