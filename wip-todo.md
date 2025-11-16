@@ -7,7 +7,7 @@
 ## Step 8
 - [ ] **Credential Storage (Platform-Specific):**
   - [x] **macOS:** Replace the mock implementation with native Keychain integration for storing credentials.
-  - [ ] **Windows:** Replace the mock implementation with native Credential Manager/DPAPI integration.
+  - [x] **Windows:** Replace the mock implementation with native Credential Manager/DPAPI integration.
 
 ## Step 9 Build, Packaging & Deprecations
 - [x] **GTK Deprecation Warnings:** Resolve all GTK deprecation warnings that occur during the build process.
@@ -20,3 +20,6 @@
 
 ## Phase 12 docs
 - [ ] **Revise readme and other documentation** based on actual code so it is complete with instructions for Mac and Windows to install what is need to compile and create binaries on both platforms. Mac only needs Arm64 support, not Intel.
+
+## Technical Debt
+- [ ] **Refactor commits:** The drag-and-drop and credential storage features were implemented in a single commit. This should be split into separate, atomic commits for better maintainability.
