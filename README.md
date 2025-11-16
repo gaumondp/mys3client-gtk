@@ -14,15 +14,9 @@ MyS3 Client is a native desktop application for macOS and Windows designed for m
 
 **macOS:** Fully supported, including secure credential storage.
 **Windows:** Compiles and runs, but uses a mock credential storage system (secrets are not saved).
-**Linux:** Not currently supported for secure credential storage. The application will compile and run, but with the same mock credential storage as Windows.
+**Linux:** While the application may compile and run on Linux, it is not officially supported.
 
-## Build System
-
-This project uses the **Meson** build system. Meson was chosen for its speed, simplicity, and excellent integration with the GNOME/GTK ecosystem.
-
-## Getting Started
-
-### Dependencies
+## Dependencies
 
 To build and run this application, you will need the following dependencies:
 
@@ -35,25 +29,6 @@ To build and run this application, you will need the following dependencies:
 *   libs3
 *   gettext
 
-On a Debian-based system (like Ubuntu), you can install these with the following command:
+## Installation
 
-```bash
-sudo apt-get install -y build-essential meson ninja-build libgtk-4-dev libgtksourceview-5-dev libglib2.0-dev libs3-dev gettext
-```
-
-### Building
-
-Once you have the dependencies installed, you can build the application with the following commands:
-
-```bash
-meson setup builddir
-meson compile -C builddir
-```
-
-### Installation
-
-To install the application on your system, run the following command from the project root:
-
-```bash
-sudo meson install -C builddir
-```
+For detailed instructions on how to compile and install MyS3 Client on your platform, please refer to the [INSTALL.md](INSTALL.md) file.
