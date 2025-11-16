@@ -16,12 +16,38 @@ This project uses the **Meson** build system. Meson was chosen for its speed, si
 
 ## Getting Started
 
-To build the project, you will need to have Meson, a C compiler, and the required development libraries (GTK4, AWS SDK for C++, etc.) installed.
+### Dependencies
+
+To build and run this application, you will need the following dependencies:
+
+*   A C compiler (e.g., GCC)
+*   Meson build system
+*   Ninja build tool
+*   GTK4
+*   GtkSourceView 5
+*   GLib 2.0
+*   libs3
+*   gettext
+
+On a Debian-based system (like Ubuntu), you can install these with the following command:
 
 ```bash
-# Configure the build
-meson setup builddir
+sudo apt-get install -y build-essential meson ninja-build libgtk-4-dev libgtksourceview-5-dev libglib2.0-dev libs3-dev gettext
+```
 
-# Compile the application
+### Building
+
+Once you have the dependencies installed, you can build the application with the following commands:
+
+```bash
+meson setup builddir
 meson compile -C builddir
+```
+
+### Installation
+
+To install the application on your system, run the following command from the project root:
+
+```bash
+sudo meson install -C builddir
 ```
