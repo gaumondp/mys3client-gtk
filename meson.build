@@ -14,18 +14,25 @@ compiled_resources = gnome.compile_resources('resources',
 # Manually find libs3
 libs3_dep = cc.find_library('s3', dirs: ['/usr/lib'])
 
+# Dependencies
+deps = [
+  dependency('gtk4'),
+  dependency('gtksourceview-5'),
+  dependency('glib-2.0'),
+  libs3_dep
+]
+
+if host_machine.system() == 'darwin'
+  deps += cc.find_library('Security', required : true)
+endif
+
 executable('mys3-client',
   'src/main.c',
   'src/settings.c',
   'src/s3_client.c',
   'src/credential_storage.c',
   compiled_resources,
-  dependencies : [
-    dependency('gtk4'),
-    dependency('gtksourceview-5'),
-    dependency('glib-2.0'),
-    libs3_dep
-  ],
+  dependencies : deps,
   install : true)
 
 # Internationalization
