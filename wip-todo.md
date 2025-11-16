@@ -6,7 +6,7 @@
 
 ## Step 8
 - [ ] **Credential Storage (Platform-Specific):**
-  - [ ] **macOS:** Replace the mock implementation with native Keychain integration for storing credentials.
+  - [x] **macOS:** Replace the mock implementation with native Keychain integration for storing credentials.
   - [ ] **Windows:** Replace the mock implementation with native Credential Manager/DPAPI integration.
 
 ## Step 9 Build, Packaging & Deprecations
