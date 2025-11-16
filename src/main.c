@@ -59,6 +59,9 @@ static void on_find_button_clicked(GtkButton *button, gpointer user_data);
 static void on_close_button_clicked(GtkButton *button, gpointer user_data);
 static gboolean on_window_close_request(GtkApplicationWindow *window, gpointer user_data);
 static MainWindow* main_window_new(GtkApplication *app);
+static gboolean on_files_dropped(GtkDropTarget *target, const GValue *value, double x, double y, gpointer user_data);
+static void show_confirmation_popup(GtkWindow *parent);
+static void show_error_dialog(GtkWindow *parent, const gchar *message);
 
 // #############################################################################
 // # Settings Dialog Implementation
@@ -827,6 +830,94 @@ static void on_file_list_row_activated(GtkListView *list_view, guint position, g
     g_object_unref(obj);
 }
 
+static gboolean close_popup_timeout(gpointer user_data) {
+    GtkWidget *popup = GTK_WIDGET(user_data);
+    gtk_window_destroy(GTK_WINDOW(popup));
+    return G_SOURCE_REMOVE;
+}
+
+static void show_confirmation_popup(GtkWindow *parent) {
+    GtkWidget *popup = gtk_window_new();
+    gtk_window_set_transient_for(GTK_WINDOW(popup), parent);
+    gtk_window_set_modal(GTK_WINDOW(popup), TRUE);
+    gtk_window_set_decorated(GTK_WINDOW(popup), FALSE);
+    gtk_window_set_resizable(GTK_WINDOW(popup), FALSE);
+
+    GtkWidget *label = gtk_label_new(_("Upload started..."));
+    gtk_widget_set_margin_start(label, 20);
+    gtk_widget_set_margin_end(label, 20);
+    gtk_widget_set_margin_top(label, 10);
+    gtk_widget_set_margin_bottom(label, 10);
+    gtk_window_set_child(GTK_WINDOW(popup), label);
+
+    gtk_widget_set_visible(popup, TRUE);
+
+    g_timeout_add(2000, close_popup_timeout, popup);
+}
+
+static gboolean on_files_dropped(GtkDropTarget *target, const GValue *value, double x, double y, gpointer user_data) {
+    (void)target; (void)x; (void)y;
+    MainWindow *mw = (MainWindow*)user_data;
+    show_confirmation_popup(GTK_WINDOW(mw->window));
+
+    GtkSingleSelection *selection = GTK_SINGLE_SELECTION(gtk_list_view_get_model(mw->folder_tree_view));
+    FolderItem *item = g_list_model_get_item(G_LIST_MODEL(selection), gtk_single_selection_get_selected(selection));
+    if (!item) {
+        gtk_statusbar_push(mw->statusbar, 0, _("Please select a folder to upload to."));
+        return TRUE;
+    }
+    gchar *current_bucket = g_strdup(item->full_path);
+    g_object_unref(item);
+
+    GList *files = g_value_get_boxed(value);
+    for (GList *l = files; l != NULL; l = l->next) {
+        GFile *file = G_FILE(l->data);
+        gchar *local_path = g_file_get_path(file);
+        gchar *key = g_path_get_basename(local_path);
+
+        g_autoptr(GError) error = NULL;
+        if (s3_client_upload_object(mw->settings->endpoint, mw->access_key, mw->secret_key, current_bucket, key, local_path, mw->settings->use_ssl, &error)) {
+            g_autofree gchar *msg = g_strdup_printf(_("'%s' uploaded successfully."), key);
+            gtk_statusbar_push(mw->statusbar, 0, msg);
+        } else {
+            g_autofree gchar *msg = g_strdup_printf(_("Failed to upload '%s': %s"), key, error->message);
+            show_error_dialog(GTK_WINDOW(mw->window), msg);
+        }
+        g_free(local_path);
+        g_free(key);
+    }
+    refresh_current_folder(mw);
+    g_free(current_bucket);
+    return TRUE;
+}
+
+static void show_error_dialog(GtkWindow *parent, const gchar *message) {
+    GtkWidget *dialog = gtk_window_new();
+    gtk_window_set_transient_for(GTK_WINDOW(dialog), parent);
+    gtk_window_set_modal(GTK_WINDOW(dialog), TRUE);
+    gtk_window_set_destroy_with_parent(GTK_WINDOW(dialog), TRUE);
+    gtk_window_set_title(GTK_WINDOW(dialog), _("Error"));
+
+    GtkWidget *content_area = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
+    gtk_widget_set_margin_start(content_area, 12);
+    gtk_widget_set_margin_end(content_area, 12);
+    gtk_widget_set_margin_top(content_area, 12);
+    gtk_widget_set_margin_bottom(content_area, 12);
+    gtk_window_set_child(GTK_WINDOW(dialog), content_area);
+
+    GtkWidget *label = gtk_label_new(message);
+    gtk_box_append(GTK_BOX(content_area), label);
+
+    GtkWidget *button_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+    gtk_widget_set_halign(button_box, GTK_ALIGN_END);
+    GtkWidget *ok_button = gtk_button_new_with_label(_("OK"));
+    gtk_box_append(GTK_BOX(button_box), ok_button);
+    gtk_box_append(GTK_BOX(content_area), button_box);
+
+    g_signal_connect_swapped(ok_button, "clicked", G_CALLBACK(gtk_window_destroy), dialog);
+    gtk_window_present(GTK_WINDOW(dialog));
+}
+
 static MainWindow* main_window_new(GtkApplication *app) {
     GtkBuilder *b = gtk_builder_new_from_resource("/com/example/mys3client/res/main_window.ui");
     MainWindow *mw = g_new0(MainWindow, 1);
@@ -871,6 +962,10 @@ static MainWindow* main_window_new(GtkApplication *app) {
     g_signal_connect(GTK_BUTTON(gtk_builder_get_object(b, "refresh_button")), "clicked", G_CALLBACK(on_refresh_button_clicked), mw);
     g_signal_connect(mw->find_button, "clicked", G_CALLBACK(on_find_button_clicked), mw);
     g_signal_connect(mw->window, "close-request", G_CALLBACK(on_window_close_request), mw);
+
+    GtkDropTarget *drop_target = gtk_drop_target_new(G_TYPE_FILE, GDK_ACTION_COPY);
+    g_signal_connect(drop_target, "drop", G_CALLBACK(on_files_dropped), mw);
+    gtk_widget_add_controller(GTK_WIDGET(mw->file_list_view), GTK_EVENT_CONTROLLER(drop_target));
 
     GSimpleAction *lang_action = g_simple_action_new_stateful("language", g_variant_type_new("s"), g_variant_new_string("en"));
     g_signal_connect(lang_action, "activate", G_CALLBACK(on_language_changed), mw);
@@ -966,6 +1061,13 @@ int main (int argc, char *argv[]) {
     app = gtk_application_new ("com.example.mys3client", G_APPLICATION_DEFAULT_FLAGS);
 
     g_signal_connect (app, "activate", G_CALLBACK(app_activate), NULL);
+
+    GtkCssProvider *provider = gtk_css_provider_new();
+    const char *css = "listview:drop-active { background-color: #a0f0a0; }";
+    gtk_css_provider_load_from_data(provider, css, -1);
+    gtk_style_context_add_provider_for_display(gdk_display_get_default(), GTK_STYLE_PROVIDER(provider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+
     status = g_application_run (G_APPLICATION (app), argc, argv);
+    g_object_unref(provider);
     return status;
 }
