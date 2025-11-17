@@ -14,7 +14,7 @@ MyS3 Client is a native desktop application for macOS and Windows designed for m
 
 **macOS:** Fully supported, including secure credential storage.
 
-**Windows:** Compiles and runs, but uses a mock credential storage system (secrets are not saved).
+**Windows:** Fully supported, including secure credential storage using the Windows Credential Manager.
 **Linux:** While the application may compile and run on Linux, it is not officially supported.
 =======
 
