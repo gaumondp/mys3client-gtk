@@ -36,7 +36,17 @@ This command installs the compiler, build tools, and essential libraries.
 brew install meson ninja cmake gettext gtk4 gtksourceview5
 ```
 
-### 3. Compile the Application
+### 3. Set Environment Variable (IMPORTANT)
+
+Before compiling, you need to tell the build system where to find the libraries installed by Homebrew. Run this command in your terminal:
+
+```bash
+export PKG_CONFIG_PATH=$(brew --prefix)/lib/pkgconfig
+```
+
+**Note:** You must run this command in every new terminal session before compiling.
+
+### 4. Compile the Application
 
 Navigate to the project's root directory in your terminal and run the following commands. The `meson setup` command will automatically download and prepare the AWS SDK for C++, which may take a few minutes.
 
