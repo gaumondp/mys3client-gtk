@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="res/logo-mys3client96.png" alt="MyS3 Client Logo" />
+</div>
+
 # MyS3 Client
 
 MyS3 Client is a native desktop application for macOS and Windows designed for managing files and folders stored in S3-compatible services like Amazon S3 or MinIO.
@@ -16,8 +20,6 @@ MyS3 Client is a native desktop application for macOS and Windows designed for m
 
 **Windows:** Fully supported, including secure credential storage using the Windows Credential Manager.
 **Linux:** While the application may compile and run on Linux, it is not officially supported.
-=======
-
 
 ## Dependencies
 
@@ -36,4 +38,3 @@ To build and run this application, you will need the following dependencies:
 ## Installation
 
 For detailed instructions on how to compile and install MyS3 Client on your platform, please refer to the [INSTALL.md](INSTALL.md) file.
-=======
