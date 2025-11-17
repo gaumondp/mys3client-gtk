@@ -28,6 +28,7 @@ To build and run this application, you will need the following dependencies:
 *   A C compiler (e.g., GCC)
 *   Meson build system
 *   Ninja build tool
+*   CMake
 *   GTK4
 *   GtkSourceView 5
 *   GLib 2.0
