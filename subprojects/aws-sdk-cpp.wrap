@@ -1,6 +1,6 @@
 [wrap-git]
 url = https://github.com/aws/aws-sdk-cpp.git
-revision = 1.11.353
+revision = 1.9.379
 
 [provide]
 aws-cpp-sdk-s3 = aws_sdk_dep

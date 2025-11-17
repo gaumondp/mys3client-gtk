@@ -116,3 +116,9 @@ To fix it, completely remove the build directory and the empty subproject direct
 rm -rf builddir subprojects/aws-sdk-cpp
 meson setup builddir --wipe
 ```
+
+### CMake Errors During `meson setup`
+
+Errors related to `AwsFindPackage` or missing `CMakeLists.txt` in `aws-crt-cpp` indicate a compatibility issue between Meson and newer versions of the AWS SDK for C++.
+
+This project uses a specific version of the AWS SDK that is known to be compatible. If you have modified the `subprojects/aws-sdk-cpp.wrap` file, please revert to the original version.
