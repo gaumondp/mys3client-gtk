@@ -7,7 +7,7 @@ MyS3 Client is a native desktop application for macOS and Windows designed for m
 *   **Native Performance:** Built with C and GTK4 for a fast, responsive, and platform-native experience.
 *   **Full CRUD Operations:** List, upload, download, rename, and delete files and folders.
 *   **Visual Interface:** A collapsible tree view for easy navigation and a detailed file list.
-*   **Embedded Editor:** A built-in text editor based on Scintilla for viewing and editing text-based files directly within the app.
+*   **Embedded Editor:** A built-in text editor based on GtkSourceView 5 for viewing and editing text-based files directly within the app.
 *   **Secure:** Credentials are stored securely in the operating system's native keychain (macOS Keychain, Windows Credential Manager).
 
 ## Platform Support
@@ -29,7 +29,7 @@ To build and run this application, you will need the following dependencies:
 *   GTK4
 *   GtkSourceView 5
 *   GLib 2.0
-*   libs3
+*   AWS SDK for C++ (specifically `s3` and `core` components)
 *   gettext
 
 
