@@ -91,3 +91,18 @@ meson compile -C builddir
 ```
 
 The compiled application (`.exe`) will be located in the `builddir` directory.
+
+---
+
+## Troubleshooting
+
+### `Subproject exists but has no CMakeLists.txt file` Error
+
+This error can happen if a previous attempt to run `meson setup` failed after creating the `subprojects/aws-sdk-cpp` directory but before downloading the source code.
+
+To fix it, completely remove the build directory and the empty subproject directory, then run the setup again:
+
+```bash
+rm -rf builddir subprojects/aws-sdk-cpp
+meson setup builddir --wipe
+```
