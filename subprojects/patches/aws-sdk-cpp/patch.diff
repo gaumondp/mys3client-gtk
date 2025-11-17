@@ -1,0 +1,36 @@
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.2...3.22)
++cmake_minimum_required(VERSION 3.7...3.22)
+
+ project(aws-sdk-cpp-project C CXX)
+
+--- a/aws-cpp-sdk-core/CMakeLists.txt
++++ b/aws-cpp-sdk-core/CMakeLists.txt
+@@ -359,7 +359,7 @@
+     endif()
+
+     if(UNIX AND NOT APPLE)
+-        find_library(LIB_UUID uuid)
+-        list(APPEND PLATFORM_LIBS ${LIB_UUID})
++        #find_library(LIB_UUID uuid)
++        #list(APPEND PLATFORM_LIBS ${LIB_UUID})
+     endif()
+
+     if(UNIX)
+--- a/aws-cpp-sdk-s3/CMakeLists.txt
++++ b/aws-cpp-sdk-s3/CMakeLists.txt
+@@ -7,7 +7,7 @@
+     aws-cpp-sdk-kms
+ )
+
+-if(ENABLE_CURL_CLIENT)
+-    list(APPEND AWS_S3_EXTRA_LIBS aws-cpp-sdk-core)
+-endif()
++#if(ENABLE_CURL_CLIENT)
++#    list(APPEND AWS_S3_EXTRA_LIBS aws-cpp-sdk-core)
++#endif()
+
+ set(AWS_S3_SAMPLES
+     s3-crt-demo
