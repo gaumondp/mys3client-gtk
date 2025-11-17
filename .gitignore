@@ -1,1 +1,7 @@
 scintilla/
+builddir/
+aws_sdk_test/build/
+build.log
+CMakeCache.txt
+*.o
+aws_sdk_test/aws_sdk_test

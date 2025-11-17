@@ -1,4 +1,4 @@
-project('mys3-client', 'c',
+project('mys3-client', 'c', 'cpp',
   version : '0.1.0',
   default_options : ['c_std=c17', 'warning_level=2'])
 
@@ -13,15 +13,31 @@ compiled_resources = gnome.compile_resources('resources',
   gresource_bundle: true,
 )
 
-# Manually find libs3
-libs3_dep = cc.find_library('s3', dirs: ['/usr/lib'])
+# AWS SDK for C++
+cmake = import('cmake')
+aws_sdk_opts = cmake.subproject_options()
+aws_sdk_opts.add_cmake_defines({
+  'BUILD_SHARED_LIBS': 'OFF',
+  'MINIMIZE_SIZE': 'ON',
+  'ENABLE_TESTING': 'OFF',
+  'AUTORUN_UNIT_TESTS': 'OFF',
+  'BUILD_ONLY': 's3;core'
+})
+aws_sdk_proj = cmake.subproject('aws-sdk-cpp', options: aws_sdk_opts)
+aws_sdk_dep = aws_sdk_proj.dependency('aws-cpp-sdk-s3')
+
+s3_wrapper_lib = static_library('s3_wrapper',
+  'src/s3_client_cpp.cpp',
+  dependencies: [aws_sdk_dep, dependency('glib-2.0')]
+)
+s3_wrapper_dep = declare_dependency(link_with: s3_wrapper_lib)
 
 # Dependencies
 deps = [
   dependency('gtk4'),
   dependency('gtksourceview-5'),
   dependency('glib-2.0'),
-  libs3_dep
+  s3_wrapper_dep
 ]
 
 if host_machine.system() == 'darwin'
