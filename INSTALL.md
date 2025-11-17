@@ -67,12 +67,24 @@ Once Homebrew is installed, you can install all the required dependencies with a
 Open the Terminal and run:
 
 ```bash
-brew install meson ninja cmake gtk4 gtksourceview5 gettext
+brew install meson ninja cmake gtk4 gtksourceview5 gettext glib
 ```
 
-### 3. Compile the Application
+### 3. Configure Environment
 
-After the dependencies are installed, navigate to the project's root directory in your terminal. The `meson setup` command inspects your system and prepares the project for compilation. The `meson compile` command then runs the compiler to build the application.
+Homebrew installs libraries in a location that the build system doesn't check by default. To fix this, you need to set an environment variable to tell the build tools where to find the necessary configuration files.
+
+Run the following command in your terminal. This will configure the path for your current terminal session.
+
+```bash
+export PKG_CONFIG_PATH="$(brew --prefix)/lib/pkgconfig"
+```
+
+**Note:** For this change to be permanent, you should add this line to your shell's startup file (e.g., `~/.zshrc` or `~/.bash_profile`).
+
+### 4. Compile the Application
+
+After the dependencies are installed and your environment is configured, navigate to the project's root directory in your terminal. The `meson setup` command inspects your system and prepares the project for compilation. The `meson compile` command then runs the compiler to build the application.
 
 ```bash
 meson setup builddir --wipe
