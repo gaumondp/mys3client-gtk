@@ -13,18 +13,48 @@ compiled_resources = gnome.compile_resources('resources',
   gresource_bundle: true,
 )
 
-# AWS SDK for C++
-cmake = import('cmake')
-aws_sdk_opts = cmake.subproject_options()
-aws_sdk_opts.add_cmake_defines({
-  'BUILD_SHARED_LIBS': 'OFF',
-  'MINIMIZE_SIZE': 'ON',
-  'ENABLE_TESTING': 'OFF',
-  'AUTORUN_UNIT_TESTS': 'OFF',
-  'BUILD_ONLY': 's3;core'
-})
-aws_sdk_proj = cmake.subproject('aws-sdk-cpp', options: aws_sdk_opts)
-aws_sdk_dep = aws_sdk_proj.dependency('aws-cpp-sdk-s3')
+# AWS SDK for C++ (Pre-built)
+cpp = meson.get_compiler('cpp')
+aws_sdk_lib_dir_abs = meson.current_source_dir() / 'scripts/dist/lib'
+aws_sdk_include_dir_rel = 'scripts/dist/include'
+
+if run_command('test', '-d', aws_sdk_lib_dir_abs).returncode() != 0
+  error('Pre-built AWS SDK not found in "scripts/dist". Please run "scripts/build-aws-sdk.sh" first.')
+endif
+
+# Define dependencies for the AWS SDK static libraries
+# The SDK's own dependencies (like curl, zlib) are expected to be found on the system.
+# On macOS, the build script configures the SDK to link against system frameworks automatically.
+aws_s3_lib = cpp.find_library('aws-cpp-sdk-s3', dirs: aws_sdk_lib_dir_abs)
+aws_core_lib = cpp.find_library('aws-cpp-sdk-core', dirs: aws_sdk_lib_dir_abs)
+aws_crt_lib = cpp.find_library('aws-crt-cpp', dirs: aws_sdk_lib_dir_abs)
+aws_checksums_lib = cpp.find_library('aws-checksums', dirs: aws_sdk_lib_dir_abs)
+aws_c_common_lib = cpp.find_library('aws-c-common', dirs: aws_sdk_lib_dir_abs)
+aws_c_cal_lib = cpp.find_library('aws-c-cal', dirs: aws_sdk_lib_dir_abs)
+aws_c_io_lib = cpp.find_library('aws-c-io', dirs: aws_sdk_lib_dir_abs)
+aws_c_http_lib = cpp.find_library('aws-c-http', dirs: aws_sdk_lib_dir_abs)
+aws_c_auth_lib = cpp.find_library('aws-c-auth', dirs: aws_sdk_lib_dir_abs)
+aws_c_sdkutils_lib = cpp.find_library('aws-c-sdkutils', dirs: aws_sdk_lib_dir_abs)
+aws_c_event_stream_lib = cpp.find_library('aws-c-event-stream', dirs: aws_sdk_lib_dir_abs)
+aws_c_mqtt_lib = cpp.find_library('aws-c-mqtt', dirs: aws_sdk_lib_dir_abs)
+aws_c_s3_lib = cpp.find_library('aws-c-s3', dirs: aws_sdk_lib_dir_abs)
+aws_c_compression_lib = cpp.find_library('aws-c-compression', dirs: aws_sdk_lib_dir_abs)
+s2n_lib = cpp.find_library('s2n', dirs: aws_sdk_lib_dir_abs)
+curl_dep = dependency('libcurl', required: true)
+crypto_dep = dependency('libcrypto', required: true)
+zlib_dep = dependency('zlib', required: true)
+
+
+aws_sdk_dep = declare_dependency(
+  include_directories: include_directories(aws_sdk_include_dir_rel),
+  dependencies: [
+    aws_s3_lib, aws_core_lib, aws_crt_lib, aws_checksums_lib,
+    aws_c_common_lib, aws_c_cal_lib, aws_c_io_lib, aws_c_http_lib,
+    aws_c_auth_lib, aws_c_sdkutils_lib, aws_c_event_stream_lib,
+    aws_c_mqtt_lib, aws_c_s3_lib, aws_c_compression_lib, s2n_lib,
+    curl_dep, crypto_dep, zlib_dep
+  ]
+)
 
 s3_wrapper_lib = static_library('s3_wrapper',
   'src/s3_client_cpp.cpp',

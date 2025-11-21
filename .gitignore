@@ -5,3 +5,7 @@ build.log
 CMakeCache.txt
 *.o
 aws_sdk_test/aws_sdk_test
+
+# Ignore the AWS SDK source and build artifacts
+scripts/aws-sdk-cpp/
+scripts/dist/
