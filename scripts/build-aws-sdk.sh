@@ -16,7 +16,7 @@ else
   git fetch
   git checkout "$SDK_VERSION"
   git submodule update --init --recursive
-  cd ..
+  cd ../..
 fi
 
 # Build and install the SDK
