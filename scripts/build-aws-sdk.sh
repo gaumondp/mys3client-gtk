@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 # Configuration
 SDK_VERSION="1.9.379"
@@ -6,14 +7,10 @@ SDK_REPO="https://github.com/aws/aws-sdk-cpp.git"
 SDK_DIR="scripts/aws-sdk-cpp"
 INSTALL_DIR="$(pwd)/scripts/dist"
 
-echo "--- Starting AWS SDK build script ---"
-
 # Clone the SDK if it doesn't exist
 if [ ! -d "$SDK_DIR" ]; then
-  echo "--- Cloning AWS SDK version ${SDK_VERSION} ---"
   git clone --recurse-submodules --branch "$SDK_VERSION" "$SDK_REPO" "$SDK_DIR"
 else
-  echo "--- SDK directory already exists. Updating... ---"
   cd "$SDK_DIR"
   git fetch
   git checkout "$SDK_VERSION"
@@ -21,7 +18,6 @@ else
   cd ../..
 fi
 
-echo "--- Configuring AWS SDK with CMake ---"
 # Build and install the SDK
 cd "$SDK_DIR"
 mkdir -p build
@@ -35,12 +31,11 @@ cmake .. \
   -DENABLE_TESTING=OFF \
   -DAUTORUN_UNIT_TESTS=OFF \
   -DBUILD_ONLY="s3;core" \
+  -DUSE_OPENSSL=ON \
   -DCMAKE_CXX_FLAGS="-Wno-error=deprecated-declarations" \
   -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 
-echo "--- Building AWS SDK with CMake ---"
 cmake --build .
-echo "--- Installing AWS SDK ---"
 cmake --build . --target install
 
-echo "--- AWS SDK build script finished ---"
+echo "AWS SDK for C++ has been successfully built and installed to $INSTALL_DIR"
