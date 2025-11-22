@@ -32,7 +32,8 @@ cmake .. \
   -DENABLE_TESTING=OFF \
   -DAUTORUN_UNIT_TESTS=OFF \
   -DBUILD_ONLY="s3;core" \
-  -DCMAKE_CXX_FLAGS="-Wno-error=deprecated-declarations"
+  -DCMAKE_CXX_FLAGS="-Wno-error=deprecated-declarations" \
+  -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 
 cmake --build .
 cmake --build . --target install
